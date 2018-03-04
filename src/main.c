@@ -4,17 +4,19 @@
 #include <SDL2/SDL_image.h>
 #include <SDL2/SDL_ttf.h>
 
-const int SCREEN_WIDTH = 640;
-const int SCREEN_HEIGHT = 480;
-const int CENTER_WIDTH = SCREEN_WIDTH / 2;
-const int CENTER_HEIGHT = SCREEN_HEIGHT / 2;
-const SDL_Color WHITE = {255, 255, 255};  
-const SDL_Color BLACK = {0, 0, 0}; 
+#define SCREEN_WIDTH 640
+#define SCREEN_HEIGHT 480
+#define CENTER_WIDTH SCREEN_WIDTH / 2
+#define CENTER_HEIGHT  SCREEN_HEIGHT / 2
+#define TRUE 1
+#define FALSE 0
+SDL_Color WHITE = {255, 255, 255};
+SDL_Color BLACK = {0, 0, 0};
 
 typedef struct {
+  SDL_Rect rect;
   int fontSize;
   TTF_Font* font;
-  SDL_Rect rect;
   char* text;
 } TextRect;
 
@@ -57,6 +59,20 @@ typedef struct {
 
 // Forward Declarations
 Game* newGame(char* text);
+void destroyGame(Game* game);
+Inventory* newInventory();
+void destroyInventory(Inventory* inventory);
+Player* newPlayer();
+void destroyPlayer(Player* player);
+Boss* newBoss();
+void destroyBoss(Boss* boss);
+NPC* newNPC();
+void destroyNPC(NPC* npc);
+TextRect* newCurrentScene(int numSceneRects);
+void destroyCurrentScene(TextRect* textRect);
+TextRect* newTextRect(int x, int y, int w, int h, int fontSize ,char* filename, char* text);
+void destroyTextRect(TextRect* textRect);
+
 int initGame(void);
 
 void loadTitleScene(Game* game);
@@ -65,7 +81,7 @@ void loadFightScene(Game* game, SDL_Rect titleSceneRects[]);
 void loadGameoverScene(Game* game, SDL_Rect titleSceneRects[]);
 void loadGameWinScene(Game* game, SDL_Rect titleSceneRects[]);
 
-void cleanUp(SDL_Renderer *renderer,SDL_Window *window);
+void cleanUp(SDL_Renderer *renderer,SDL_Window *window, Game* game);
 TTF_Font* loadText(const char *fileName, int fontSize);
 void renderText(SDL_Renderer *renderer,TTF_Font *font,SDL_Rect rect, char *text);
 void render(SDL_Renderer *renderer, Game* game);
@@ -73,6 +89,97 @@ void renderScene(SDL_Renderer *renderer,Game* game);
 void updateScene(SDL_Renderer *renderer, Game* game);
 
 // function definitions
+void destroyGame(Game* game) {
+  if (game) {
+    free(game);
+    game = 0;
+  }
+}
+
+Inventory* newInventory() {
+  Inventory* inventory = malloc(sizeof *inventory);
+  return inventory;
+}
+
+void destroyInventory(Inventory* inventory) {
+  if (inventory) {
+    free(inventory);
+    inventory = 0;
+  }
+}
+
+Player* newPlayer() {
+  Player* player = malloc(sizeof *player);
+  return player;
+}
+
+void destroyPlayer(Player* player) {
+  if (player) {
+    free(player);
+    player = 0;
+  }
+}
+
+Boss* newBoss() {
+  Boss* boss = malloc(sizeof *boss);
+  return boss;
+}
+
+void destroyBoss(Boss* boss) {
+  if (boss) {
+    free(boss);
+    boss = 0;
+  }
+}
+
+NPC* newNPC() {
+  NPC* npc = malloc(sizeof *npc);
+  return npc;
+}
+
+void destroyNPC(NPC* npc) {
+  if (npc) {
+    free(npc);
+    npc = 0;
+  }
+}
+
+TextRect* newCurrentScene(int numSceneRects) {
+  TextRect* currentScene = malloc(numSceneRects * sizeof(TextRect));
+  return currentScene;
+}
+
+void destroyCurrentScene(TextRect* currentScene) {
+  if (currentScene) {
+    int numSceneRects = sizeof(currentScene) / sizeof(currentScene[0]);
+    for (int i = 0; i < numSceneRects; ++i) {
+      TTF_CloseFont(currentScene[i].font);
+    }
+    free(currentScene);
+    currentScene = 0;
+  }
+}
+
+TextRect* newTextRect(int x, int y, int w, int h, int fontSize ,char* filename, char* text) {
+  TextRect* textRect = malloc(sizeof *textRect);
+
+  textRect->rect.x  = x;
+  textRect->rect.y = y;
+  textRect->rect.w = w;
+  textRect->rect.h = h;
+  textRect->text = text;
+  textRect->font = loadText(filename, fontSize);
+  return textRect;
+}
+
+void destroyTextRect(TextRect* textRect) {
+  if (textRect) {
+    TTF_CloseFont(textRect->font);
+    free(textRect);
+    textRect = 0;
+  }
+}
+
 void loadTitleScene(Game* game) {
     // title scene
   SDL_Rect titleRect;
@@ -213,7 +320,7 @@ void render(SDL_Renderer *renderer, Game* game) {
   SDL_RenderPresent(renderer);
 }
 
-void cleanUp(SDL_Renderer *renderer,SDL_Window *window) {
+void cleanUp(SDL_Renderer *renderer,SDL_Window *window, Game* game) {
   // FIXME: probably need to include destroying a texture here...
   // SDL_DestroyTexture(texture);
   SDL_DestroyRenderer(renderer);
@@ -273,7 +380,7 @@ int initGame(void) {
       if(event.type == SDL_QUIT) {
         loop = 0;
         free(game);
-        cleanUp(renderer, window);
+        cleanUp(renderer, window, game);
         return 0;
       }
     }
