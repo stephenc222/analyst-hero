@@ -30,7 +30,6 @@ typedef struct {
   int status;
   int timeScore;
   int reportEff;
-  Inventory inventory;
 } Player;
 
 typedef struct {
@@ -45,8 +44,6 @@ typedef struct {
 } NPC;
 
 typedef struct {
-  char* text;
-  TTF_Font* font;
   int numSceneRects;
   TextRect* currentScene;
   Player* player;
@@ -55,6 +52,7 @@ typedef struct {
   NPC* maleOne;
   NPC* femaleOne;
   NPC* femaleTwo;
+  Inventory* inventory;
 } Game;
 
 // Forward Declarations
@@ -69,7 +67,7 @@ void destroyBoss(Boss* boss);
 NPC* newNPC();
 void destroyNPC(NPC* npc);
 TextRect* newCurrentScene(int numSceneRects);
-void destroyCurrentScene(TextRect* textRect);
+void destroyCurrentScene(TextRect* textRect, int numSceneRects);
 TextRect* newTextRect(int x, int y, int w, int h, int fontSize ,char* filename, char* text);
 void destroyTextRect(TextRect* textRect);
 
@@ -91,6 +89,14 @@ void updateScene(SDL_Renderer *renderer, Game* game);
 // function definitions
 void destroyGame(Game* game) {
   if (game) {
+    destroyPlayer(game->player);
+    destroyInventory(game->inventory);
+    destroyBoss(game->firstBoss);
+    destroyBoss(game->finalBoss);
+    destroyNPC(game->maleOne);
+    destroyNPC(game->femaleOne);
+    destroyNPC(game->femaleTwo);
+    destroyCurrentScene(game->currentScene, game->numSceneRects);
     free(game);
     game = 0;
   }
@@ -149,11 +155,12 @@ TextRect* newCurrentScene(int numSceneRects) {
   return currentScene;
 }
 
-void destroyCurrentScene(TextRect* currentScene) {
+void destroyCurrentScene(TextRect* currentScene, int numSceneRects) {
   if (currentScene) {
-    int numSceneRects = sizeof(currentScene) / sizeof(currentScene[0]);
     for (int i = 0; i < numSceneRects; ++i) {
-      TTF_CloseFont(currentScene[i].font);
+      if (currentScene[i].font) {
+        TTF_CloseFont(currentScene[i].font);
+      }
     }
     free(currentScene);
     currentScene = 0;
@@ -186,40 +193,46 @@ void loadTitleScene(Game* game) {
   SDL_Rect subTitleRect;
   SDL_Rect startGameRect;
 
-  TextRect* titleTextRect = malloc(sizeof *titleTextRect);
-  TextRect* subTitleTextRect = malloc(sizeof *subTitleTextRect);
-  TextRect* startGameTextRect = malloc(sizeof *startGameTextRect);
-
-  char* titleText =  "Analyst Hero";
-  char* subText =  "Click to start game";
+  // char* titleText =  "Analyst Hero";
+  // char* subText =  "Click to start game";
   char* startText =  "START GAME";
 
-  titleRect.x = CENTER_WIDTH - 100;
-  titleRect.y = CENTER_HEIGHT - 150;
-  titleRect.w = 200;
-  titleRect.h = 100;
-  titleTextRect->text = titleText;
-  titleTextRect->rect = titleRect;
-  titleTextRect->font = loadText("../assets/OpenSans-Bold.ttf", 100);
+  TextRect* titleTextRect = newTextRect(
+    CENTER_WIDTH - 100,
+    CENTER_HEIGHT - 150,
+    200,
+    100, 
+    100,
+    "../assets/OpenSans-Bold.ttf",
+    "Analyst Hero"
+  );
 
-  subTitleRect.x = CENTER_WIDTH - 100;
-  subTitleRect.y = CENTER_HEIGHT - 50 ;
-  subTitleRect.w = 200;
-  subTitleRect.h = 60;
-  subTitleTextRect->text = subText;
-  subTitleTextRect->rect = subTitleRect;
-  subTitleTextRect->font = loadText("../assets/OpenSans-Bold.ttf", 40);
+  TextRect* subTitleTextRect = newTextRect(
+    CENTER_WIDTH - 100,
+    CENTER_HEIGHT - 50,
+    200,
+    60, 
+    40,
+    "../assets/OpenSans-Bold.ttf",
+    "Click to start game"
+  );
 
-  startGameRect.x = CENTER_WIDTH - 100;
-  startGameRect.y = CENTER_HEIGHT;
-  startGameRect.w = 200;
-  startGameRect.h = 70;
-  startGameTextRect->text = startText;
-  startGameTextRect->rect = startGameRect;
-  startGameTextRect->font = loadText("../assets/OpenSans-Bold.ttf", 70);
+  TextRect* startGameTextRect = newTextRect(
+    CENTER_WIDTH - 100,
+    CENTER_HEIGHT,
+    200,
+    70, 
+    70,
+    "../assets/OpenSans-Bold.ttf",
+    "START GAME"
+  );
 
   TextRect* titleSceneRects[3] = {titleTextRect, subTitleTextRect, startGameTextRect};
+  if (game->currentScene) {
+    destroyCurrentScene(game->currentScene, game->numSceneRects);
+  }
   game->numSceneRects = 3;
+  game->currentScene = newCurrentScene(3);
 
   for (int i = 0; i < 3; ++i) {
     game->currentScene[i] = *titleSceneRects[i];
@@ -236,11 +249,11 @@ void loadFightScene(Game* game, SDL_Rect titleSceneRects[]) {
 }
 
 void loadGameoverScene(Game* game, SDL_Rect titleSceneRects[]) {
-    // TODO: Gameover scene
+  // TODO: Gameover scene
 }
 
 void loadGameWinScene(Game* game, SDL_Rect titleSceneRects[]) {
-    // TODO: GameWin scene
+  // TODO: GameWin scene
 }
 
 // Definitions
@@ -287,26 +300,15 @@ Game* newGame(char* text) {
 
   // *note to self = must allocate (malloc) memory for structs
   Game* game = malloc(sizeof *game);
-  Inventory* inventory = malloc(sizeof *inventory);
-  Player* player = malloc(sizeof *player);
-  Boss* firstBoss = malloc(sizeof *firstBoss);
-  Boss* finalBoss = malloc(sizeof *finalBoss);
-  NPC* maleOne = malloc(sizeof *maleOne);
-  NPC* femaleOne = malloc(sizeof *femaleOne);
-  NPC* femaleTwo = malloc(sizeof *femaleTwo);
-  // struct st *x = malloc(sizeof *x); 
 
-  TTF_Font* font = loadText("../assets/OpenSans-Bold.ttf", 100);
-
-  game->text = text;
-  game->font = font;
-  game->player = player;
-  game->firstBoss = firstBoss;
-  game->finalBoss = finalBoss;
-  game->maleOne = maleOne;
-  game->femaleOne = femaleOne;
-  game->femaleTwo = femaleTwo;
-  game->currentScene  = (TextRect*) malloc(sizeof(TextRect*)*10);
+  game->player = newPlayer();
+  game->inventory = newInventory();
+  game->firstBoss = newBoss();
+  game->finalBoss = newBoss();
+  game->maleOne = newNPC();
+  game->femaleOne = newNPC();
+  game->femaleTwo = newNPC();
+  game->currentScene  = 0;
 
   return game;
 }
@@ -323,6 +325,7 @@ void render(SDL_Renderer *renderer, Game* game) {
 void cleanUp(SDL_Renderer *renderer,SDL_Window *window, Game* game) {
   // FIXME: probably need to include destroying a texture here...
   // SDL_DestroyTexture(texture);
+  destroyGame(game);
   SDL_DestroyRenderer(renderer);
   SDL_DestroyWindow(window);
   SDL_Quit();
@@ -379,7 +382,7 @@ int initGame(void) {
       // handle user events
       if(event.type == SDL_QUIT) {
         loop = 0;
-        free(game);
+        // free(game);
         cleanUp(renderer, window, game);
         return 0;
       }
