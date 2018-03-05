@@ -43,6 +43,8 @@ typedef struct {
   int endX, endY;
 } NPC;
 
+// TODO: add struct for game user input handling
+
 typedef struct {
   int numSceneRects;
   TextRect* currentScene;
@@ -53,6 +55,7 @@ typedef struct {
   NPC* femaleOne;
   NPC* femaleTwo;
   Inventory* inventory;
+  char* currentSceneName;
 } Game;
 
 // Forward Declarations
@@ -72,6 +75,8 @@ TextRect* newTextRect(int x, int y, int w, int h, int fontSize ,char* filename, 
 void destroyTextRect(TextRect* textRect);
 
 int initGame(void);
+void handleInput(Game* game, int *loop);
+void update(Game* game, float dt);
 
 void loadTitleScene(Game* game);
 void loadPlayScene(Game* game, SDL_Rect titleSceneRects[]);
@@ -86,7 +91,28 @@ void render(SDL_Renderer *renderer, Game* game);
 void renderScene(SDL_Renderer *renderer,Game* game);
 void updateScene(SDL_Renderer *renderer, Game* game);
 
+void update(Game* game, float dt) { 
+  // TODO: implement game update logic
+  // printf("CURRENT SCENE: %s\n", game->currentSceneName);
+  // fflush(stdout);
+}
+
 // function definitions
+void handleInput(Game* game, int *loop) {
+  SDL_Event event;
+  while(SDL_PollEvent(&event)) {
+    // handle user events
+    if(event.type != SDL_QUIT) {
+      // for debugging the various event type enum values
+      // printf("event.type: %d \n", event.type);
+      // fflush(stdout);     
+    } else {
+      // exit the outer while loop controlled by this loop variable
+      *loop = 0;        
+    }
+  }
+}
+
 void destroyGame(Game* game) {
   if (game) {
     destroyPlayer(game->player);
@@ -227,6 +253,8 @@ void loadTitleScene(Game* game) {
     "START GAME"
   );
 
+  game->currentSceneName = "title";
+
   TextRect* titleSceneRects[3] = {titleTextRect, subTitleTextRect, startGameTextRect};
   if (game->currentScene) {
     destroyCurrentScene(game->currentScene, game->numSceneRects);
@@ -268,7 +296,7 @@ void renderText(SDL_Renderer *renderer,TTF_Font *font,SDL_Rect rect, char *text)
 }
 
 void updateScene(SDL_Renderer *renderer, Game* game) {
-  // TODO:
+
 }
 
 void renderScene(SDL_Renderer *renderer, Game* game) {
@@ -340,7 +368,7 @@ int initGame(void) {
     return 1;
   }
 
-  if(TTF_Init()==-1) {
+  if(TTF_Init() != 0) {
     printf("TTF_Init: %s\n", TTF_GetError());
     return 1;
   }
@@ -371,26 +399,24 @@ int initGame(void) {
   // TODO: refactor game struct initializer
   Game* game = newGame("SOME TITLE");
   loadTitleScene(game);
-  // init scenes
 
-  // main game loop
   int loop = 1;
+
+  float dt = 0;
+  double lastTime = 0, currentTime;
+
   while(loop) {
-    SDL_Event event;
-    while(SDL_PollEvent(&event))
-    {
-      // handle user events
-      if(event.type == SDL_QUIT) {
-        loop = 0;
-        // free(game);
-        cleanUp(renderer, window, game);
-        return 0;
-      }
+    handleInput(game, &loop);
+
+    currentTime = SDL_GetTicks();
+    if ((currentTime - lastTime) < 1000) {
+      dt = (currentTime - lastTime);
+      update(game, dt);
     }
-    // update
+    lastTime = currentTime;
     render(renderer, game);
   }
-  
+  cleanUp(renderer, window, game);
   return 0;
 };
 
