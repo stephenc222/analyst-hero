@@ -18,6 +18,7 @@ typedef struct {
   int fontSize;
   TTF_Font* font;
   char* text;
+  int isShown;
 } TextRect;
 
 typedef struct {
@@ -44,9 +45,17 @@ typedef struct {
 } NPC;
 
 // TODO: add struct for game user input handling
+typedef struct {
+  int isKeyDown;
+  int isMouseDown;
+  double mouseX;
+  double mouseY;
+  int whichKey;
+} GameInput;
 
 typedef struct {
   int numSceneRects;
+  GameInput* gameInput;
   TextRect* currentScene;
   Player* player;
   Boss* firstBoss;
@@ -61,6 +70,8 @@ typedef struct {
 // Forward Declarations
 Game* newGame(char* text);
 void destroyGame(Game* game);
+GameInput* newGameInput();
+void destroyGameInput(GameInput* gameInput);
 Inventory* newInventory();
 void destroyInventory(Inventory* inventory);
 Player* newPlayer();
@@ -71,18 +82,24 @@ NPC* newNPC();
 void destroyNPC(NPC* npc);
 TextRect* newCurrentScene(int numSceneRects);
 void destroyCurrentScene(TextRect* textRect, int numSceneRects);
-TextRect* newTextRect(int x, int y, int w, int h, int fontSize ,char* filename, char* text);
+TextRect* newTextRect(int x, int y, int w, int h, int fontSize ,char* filename, char* text, int isShown);
 void destroyTextRect(TextRect* textRect);
 
 int initGame(void);
 void handleInput(Game* game, int *loop);
 void update(Game* game, float dt);
 
+void updateTitleScene(Game* game, float dt);
+void updatePlayScene(Game* game, float dt);
+void updateGameoverScene(Game* game, float dt);
+void updateGameoverScene(Game* game, float dt);
+void updateGameWinScene(Game* game, float dt);
+
 void loadTitleScene(Game* game);
-void loadPlayScene(Game* game, SDL_Rect titleSceneRects[]);
-void loadFightScene(Game* game, SDL_Rect titleSceneRects[]);
-void loadGameoverScene(Game* game, SDL_Rect titleSceneRects[]);
-void loadGameWinScene(Game* game, SDL_Rect titleSceneRects[]);
+void loadPlayScene(Game* game);
+void loadFightScene(Game* game);
+void loadGameoverScene(Game* game);
+void loadGameWinScene(Game* game);
 
 void cleanUp(SDL_Renderer *renderer,SDL_Window *window, Game* game);
 TTF_Font* loadText(const char *fileName, int fontSize);
@@ -90,11 +107,81 @@ void renderText(SDL_Renderer *renderer,TTF_Font *font,SDL_Rect rect, char *text)
 void render(SDL_Renderer *renderer, Game* game);
 void renderScene(SDL_Renderer *renderer,Game* game);
 void updateScene(SDL_Renderer *renderer, Game* game);
+void handleWhichKey(Game* game, SDL_Keysym *keysym);
+
+void updateTitleScene(Game* game, float dt) {
+  // printf("UPDATE TITLE SCENE: %s\n", game->currentSceneName);  
+  if (game->gameInput->whichKey == SDL_SCANCODE_RETURN) {
+    loadPlayScene(game);
+  }
+}
+
+void updatePlayScene(Game* game, float dt) {
+  // printf("UPDATE PLAY SCENE: %s\n", game->currentSceneName);  
+}
 
 void update(Game* game, float dt) { 
   // TODO: implement game update logic
   // printf("CURRENT SCENE: %s\n", game->currentSceneName);
   // fflush(stdout);
+  if (strncmp(game->currentSceneName, "title", 4) == 0) {
+    updateTitleScene(game, dt);
+  } else if (strncmp(game->currentSceneName, "play", 4) == 0) {
+    updatePlayScene(game, dt);
+  }
+}
+
+void handleWhichKey(Game* game, SDL_Keysym *keysym) {
+  switch (keysym->scancode) {
+    case SDL_SCANCODE_A: {
+      // printf("A pressed!\n");
+      game->gameInput->whichKey = SDL_SCANCODE_LEFT;
+      break;
+    }
+    case SDL_SCANCODE_LEFT: {
+      // printf("left pressed!\n");
+      game->gameInput->whichKey = SDL_SCANCODE_LEFT;
+      break;
+    }
+    case SDL_SCANCODE_D: {
+      // printf("D pressed!\n");
+      game->gameInput->whichKey = SDL_SCANCODE_RIGHT;
+      break;
+    }
+    case SDL_SCANCODE_RIGHT: {
+      // printf("right pressed!\n");
+      game->gameInput->whichKey = SDL_SCANCODE_RIGHT;
+      break;
+    }
+    case SDL_SCANCODE_W: {
+      // printf("W pressed!\n");
+      game->gameInput->whichKey = SDL_SCANCODE_UP;
+      break;
+    }
+    case SDL_SCANCODE_UP: {
+      // printf("up pressed!\n");
+      game->gameInput->whichKey = SDL_SCANCODE_UP;
+      break;
+    }
+    case SDL_SCANCODE_S: {
+      // printf("S pressed!\n");
+      game->gameInput->whichKey = SDL_SCANCODE_DOWN;
+      break;
+    }
+    case SDL_SCANCODE_DOWN: {
+      // printf("down pressed!\n");
+      game->gameInput->whichKey = SDL_SCANCODE_DOWN;
+      break;
+    }
+    case SDL_SCANCODE_RETURN: {
+      // printf("Enter pressed!\n");
+      game->gameInput->whichKey = SDL_SCANCODE_RETURN;
+      break;
+    }
+    default: {
+      break;
+    }
+  }
 }
 
 // function definitions
@@ -102,20 +189,73 @@ void handleInput(Game* game, int *loop) {
   SDL_Event event;
   while(SDL_PollEvent(&event)) {
     // handle user events
-    if(event.type != SDL_QUIT) {
-      // for debugging the various event type enum values
-      // printf("event.type: %d \n", event.type);
-      // fflush(stdout);     
-    } else {
-      // exit the outer while loop controlled by this loop variable
-      *loop = 0;        
+    // for debugging the various event type enum values
+    // printf("event.type: %d \n", event.type);
+    switch (event.type) {
+      case SDL_QUIT: {
+        // exit the outer while loop controlled by this loop variable
+        *loop = 0;        
+        break;
+      }
+      case SDL_KEYDOWN: {
+        // printf("keyDown and: %u\n", event.key.keysym);
+        if (game->gameInput->isKeyDown == 1) {
+          break;
+        }
+        game->gameInput->isKeyDown = 1;
+        handleWhichKey(game, &event.key.keysym);
+        break;
+      }
+      case SDL_KEYUP: {
+        // printf("keyUp!\n");
+        game->gameInput->isKeyDown = 0;        
+        break;
+      }
+      case SDL_MOUSEBUTTONDOWN: {
+        // printf("mouseDown!\n");
+        game->gameInput->isMouseDown = 1;                
+        break;
+      }
+      case SDL_MOUSEBUTTONUP: {
+        // printf("mouseUp!\n");
+        game->gameInput->isMouseDown = 0;                
+        break;
+      }
+      case SDL_MOUSEMOTION: {
+        // printf("X: %d, Y: %d \n", event.motion.x, event.motion.y);
+        game->gameInput->mouseX = event.motion.x;
+        game->gameInput->mouseY = event.motion.y;
+        break;
+      }
+      default: {
+        break;
+      }
     }
+  }
+}
+
+GameInput* newGameInput() {
+  
+  GameInput* gameInput = malloc(sizeof *gameInput);
+  gameInput->isKeyDown = 0;
+  gameInput->mouseX = 0;
+  gameInput->mouseY = 0;
+  gameInput->whichKey = 0;
+  gameInput->isMouseDown = 0;
+
+  return gameInput;
+}
+
+void destroyGameInput(GameInput* gameInput) {
+  if (gameInput) {
+    free(gameInput);
   }
 }
 
 void destroyGame(Game* game) {
   if (game) {
     destroyPlayer(game->player);
+    destroyGameInput(game->gameInput);
     destroyInventory(game->inventory);
     destroyBoss(game->firstBoss);
     destroyBoss(game->finalBoss);
@@ -193,7 +333,7 @@ void destroyCurrentScene(TextRect* currentScene, int numSceneRects) {
   }
 }
 
-TextRect* newTextRect(int x, int y, int w, int h, int fontSize ,char* filename, char* text) {
+TextRect* newTextRect(int x, int y, int w, int h, int fontSize ,char* filename, char* text, int isShown) {
   TextRect* textRect = malloc(sizeof *textRect);
 
   textRect->rect.x  = x;
@@ -201,6 +341,7 @@ TextRect* newTextRect(int x, int y, int w, int h, int fontSize ,char* filename, 
   textRect->rect.w = w;
   textRect->rect.h = h;
   textRect->text = text;
+  textRect->isShown = isShown;
   textRect->font = loadText(filename, fontSize);
   return textRect;
 }
@@ -214,14 +355,6 @@ void destroyTextRect(TextRect* textRect) {
 }
 
 void loadTitleScene(Game* game) {
-    // title scene
-  SDL_Rect titleRect;
-  SDL_Rect subTitleRect;
-  SDL_Rect startGameRect;
-
-  // char* titleText =  "Analyst Hero";
-  // char* subText =  "Click to start game";
-  char* startText =  "START GAME";
 
   TextRect* titleTextRect = newTextRect(
     CENTER_WIDTH - 100,
@@ -230,7 +363,8 @@ void loadTitleScene(Game* game) {
     100, 
     100,
     "../assets/OpenSans-Bold.ttf",
-    "Analyst Hero"
+    "Analyst Hero",
+    1
   );
 
   TextRect* subTitleTextRect = newTextRect(
@@ -240,7 +374,8 @@ void loadTitleScene(Game* game) {
     60, 
     40,
     "../assets/OpenSans-Bold.ttf",
-    "Click to start game"
+    "Press Enter to start game",
+    1
   );
 
   TextRect* startGameTextRect = newTextRect(
@@ -250,7 +385,8 @@ void loadTitleScene(Game* game) {
     70, 
     70,
     "../assets/OpenSans-Bold.ttf",
-    "START GAME"
+    "START GAME",
+    1
   );
 
   game->currentSceneName = "title";
@@ -268,19 +404,44 @@ void loadTitleScene(Game* game) {
   }
 }
 
-void loadPlayScene(Game* game, SDL_Rect playSceneRects[]) {
+void loadPlayScene(Game* game) {
   // TODO: main play scene
+  TextRect* playingGameTextRect = newTextRect(
+    CENTER_WIDTH - 100,
+    CENTER_HEIGHT,
+    200,
+    70, 
+    70,
+    "../assets/OpenSans-Bold.ttf",
+    "-PLAYING GAME-",
+    1
+  );
+  
+  game->currentSceneName = "play";
+  TextRect* playSceneRects[1] = {playingGameTextRect};
+  
+  if (game->currentScene) {
+    destroyCurrentScene(game->currentScene, game->numSceneRects);
+  }
+
+  game->numSceneRects = 1;
+  game->currentScene = newCurrentScene(1);
+
+  for (int i = 0; i < 1; ++i) {
+    game->currentScene[i] = *playSceneRects[i];
+    printf("test again: %s \n", game->currentScene[i].text);
+  }
 }
 
-void loadFightScene(Game* game, SDL_Rect titleSceneRects[]) {
+void loadFightScene(Game* game) {
   // TODO: fight scene
 }
 
-void loadGameoverScene(Game* game, SDL_Rect titleSceneRects[]) {
+void loadGameoverScene(Game* game) {
   // TODO: Gameover scene
 }
 
-void loadGameWinScene(Game* game, SDL_Rect titleSceneRects[]) {
+void loadGameWinScene(Game* game) {
   // TODO: GameWin scene
 }
 
@@ -295,24 +456,17 @@ void renderText(SDL_Renderer *renderer,TTF_Font *font,SDL_Rect rect, char *text)
   SDL_DestroyTexture(Message);
 }
 
-void updateScene(SDL_Renderer *renderer, Game* game) {
-
-}
-
 void renderScene(SDL_Renderer *renderer, Game* game) {
   // render scene specific stuff here
-  // SDL_Rect rect;
-  // rect.x = 0;  //controls the rect's x coordinate 
-  // rect.y = 0; // controls the rect's y coordinte
-  // rect.w = 200; // controls the width of the rect
-  // rect.h = 100; // controls the height of the rect
   for (int i = 0; i < game->numSceneRects; ++i) {
-    renderText(
-      renderer, 
-      game->currentScene[i].font,  
-      game->currentScene[i].rect, 
-      game->currentScene[i].text
-    );
+    if (game->currentScene[i].isShown) {
+      renderText(
+        renderer, 
+        game->currentScene[i].font,  
+        game->currentScene[i].rect, 
+        game->currentScene[i].text
+      );
+    }
   }
   // renderText(renderer, game->font,  rect, game->text);
 }
@@ -329,6 +483,7 @@ Game* newGame(char* text) {
   // *note to self = must allocate (malloc) memory for structs
   Game* game = malloc(sizeof *game);
 
+  game->gameInput = newGameInput();
   game->player = newPlayer();
   game->inventory = newInventory();
   game->firstBoss = newBoss();
@@ -336,7 +491,7 @@ Game* newGame(char* text) {
   game->maleOne = newNPC();
   game->femaleOne = newNPC();
   game->femaleTwo = newNPC();
-  game->currentScene  = 0;
+  game->currentScene = 0;
 
   return game;
 }
