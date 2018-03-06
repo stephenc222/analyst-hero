@@ -17,6 +17,7 @@ typedef struct {
   SDL_Rect rect;
   int fontSize;
   TTF_Font* font;
+  SDL_Texture* texture;
   char* text;
   int isShown;
 } TextRect;
@@ -31,20 +32,28 @@ typedef struct {
   int status;
   int timeScore;
   int reportEff;
+  SDL_Texture* texture;  
 } Player;
 
 typedef struct {
   int health;
   int status;
   char* name;
+  SDL_Texture* texture;  
 } Boss;
 
 typedef struct {
   int startX, startY;
   int endX, endY;
+  SDL_Texture* texture;
 } NPC;
 
-// TODO: add struct for game user input handling
+typedef struct {
+  SDL_Texture* wallTexture;
+  SDL_Texture* groundTexture;
+  int textureMapArr;
+} GameMap;
+
 typedef struct {
   int isKeyDown;
   int isMouseDown;
@@ -55,6 +64,7 @@ typedef struct {
 
 typedef struct {
   int numSceneRects;
+  GameMap* gameMap;
   GameInput* gameInput;
   TextRect* currentScene;
   Player* player;
@@ -68,66 +78,70 @@ typedef struct {
 } Game;
 
 // Forward Declarations
-Game* newGame(char* text);
+Game* newGame(SDL_Renderer* renderer);
 void destroyGame(Game* game);
 GameInput* newGameInput();
 void destroyGameInput(GameInput* gameInput);
+GameMap* newGameMap(SDL_Renderer* renderer);
+void destroyGameMap(GameMap* gameMap);
 Inventory* newInventory();
 void destroyInventory(Inventory* inventory);
-Player* newPlayer();
+Player* newPlayer(SDL_Renderer* renderer);
 void destroyPlayer(Player* player);
-Boss* newBoss();
+Boss* newBoss(SDL_Renderer* renderer);
 void destroyBoss(Boss* boss);
-NPC* newNPC();
+NPC* newNPC(SDL_Renderer* renderer);
 void destroyNPC(NPC* npc);
 TextRect* newCurrentScene(int numSceneRects);
 void destroyCurrentScene(TextRect* textRect, int numSceneRects);
-TextRect* newTextRect(int x, int y, int w, int h, int fontSize ,char* filename, char* text, int isShown);
+TextRect* newTextRect(SDL_Renderer* renderer, int x, int y, int w, int h, int fontSize ,char* filename, char* text, int isShown);
 void destroyTextRect(TextRect* textRect);
 
 int initGame(void);
 void handleInput(Game* game, int *loop);
-void update(Game* game, float dt);
+void update(SDL_Renderer* renderer,Game* game, float dt);
 
-void updateTitleScene(Game* game, float dt);
-void updatePlayScene(Game* game, float dt);
-void updateGameoverScene(Game* game, float dt);
-void updateGameoverScene(Game* game, float dt);
-void updateGameWinScene(Game* game, float dt);
+void updateTitleScene(SDL_Renderer* renderer, Game* game, float dt);
+void updatePlayScene(SDL_Renderer* renderer, Game* game, float dt);
+void updateGameoverScene(SDL_Renderer* renderer, Game* game, float dt);
+void updateGameoverScene(SDL_Renderer* renderer, Game* game, float dt);
+void updateGameWinScene(SDL_Renderer* renderer, Game* game, float dt);
 
-void loadTitleScene(Game* game);
-void loadPlayScene(Game* game);
-void loadFightScene(Game* game);
-void loadGameoverScene(Game* game);
-void loadGameWinScene(Game* game);
+void loadTitleScene(SDL_Renderer* renderer, Game* game);
+void loadPlayScene(SDL_Renderer* renderer, Game* game);
+void loadFightScene(SDL_Renderer* renderer,Game* game);
+void loadGameoverScene(SDL_Renderer* renderer, Game* game);
+void loadGameWinScene(SDL_Renderer* renderer,Game* game);
 
 void cleanUp(SDL_Renderer *renderer,SDL_Window *window, Game* game);
 TTF_Font* loadText(const char *fileName, int fontSize);
-void renderText(SDL_Renderer *renderer,TTF_Font *font,SDL_Rect rect, char *text);
+void renderText(SDL_Renderer *renderer, SDL_Texture *texture,TTF_Font *font,SDL_Rect rect, char *text);
 void render(SDL_Renderer *renderer, Game* game);
+void renderMap(SDL_Renderer * renderer, Game* game);
 void renderScene(SDL_Renderer *renderer,Game* game);
+void renderPlayScene(SDL_Renderer *renderer, Game* game);
 void updateScene(SDL_Renderer *renderer, Game* game);
 void handleWhichKey(Game* game, SDL_Keysym *keysym);
 
-void updateTitleScene(Game* game, float dt) {
+void updateTitleScene(SDL_Renderer* renderer,Game* game, float dt) {
   // printf("UPDATE TITLE SCENE: %s\n", game->currentSceneName);  
   if (game->gameInput->whichKey == SDL_SCANCODE_RETURN) {
-    loadPlayScene(game);
+    loadPlayScene(renderer,game);
   }
 }
 
-void updatePlayScene(Game* game, float dt) {
+void updatePlayScene(SDL_Renderer* renderer,Game* game, float dt) {
   // printf("UPDATE PLAY SCENE: %s\n", game->currentSceneName);  
 }
 
-void update(Game* game, float dt) { 
+void update(SDL_Renderer* renderer, Game* game, float dt) { 
   // TODO: implement game update logic
   // printf("CURRENT SCENE: %s\n", game->currentSceneName);
   // fflush(stdout);
   if (strncmp(game->currentSceneName, "title", 4) == 0) {
-    updateTitleScene(game, dt);
+    updateTitleScene(renderer,game, dt);
   } else if (strncmp(game->currentSceneName, "play", 4) == 0) {
-    updatePlayScene(game, dt);
+    updatePlayScene(renderer, game, dt);
   }
 }
 
@@ -234,6 +248,35 @@ void handleInput(Game* game, int *loop) {
   }
 }
 
+GameMap* newGameMap(SDL_Renderer* renderer) {
+  GameMap* gameMap = malloc(sizeof *gameMap);
+  SDL_Surface* wall = IMG_Load("../assets/color-wall-6b5445.png");
+  SDL_Surface* ground = IMG_Load("../assets/color-floor-bedcb0.png");
+
+  SDL_Texture* wallTexture = SDL_CreateTextureFromSurface(renderer, wall);
+  SDL_Texture* groundTexture = SDL_CreateTextureFromSurface(renderer, ground);
+
+  SDL_FreeSurface(wall);
+  SDL_FreeSurface(ground);
+
+  gameMap->groundTexture = groundTexture;
+  gameMap->wallTexture = wallTexture;
+
+  // TODO: add an int-based mapping array for rendering either a ground or wall texture
+  return gameMap;
+}
+
+void destroyGameMap(GameMap* gameMap) {
+  if (gameMap) {
+    if (gameMap->groundTexture) {
+      free(gameMap->groundTexture);
+    }
+    if (gameMap->wallTexture) {
+      free(gameMap->wallTexture);
+    }
+  }
+}
+
 GameInput* newGameInput() {
   
   GameInput* gameInput = malloc(sizeof *gameInput);
@@ -280,7 +323,7 @@ void destroyInventory(Inventory* inventory) {
   }
 }
 
-Player* newPlayer() {
+Player* newPlayer(SDL_Renderer* renderer) {
   Player* player = malloc(sizeof *player);
   return player;
 }
@@ -292,7 +335,7 @@ void destroyPlayer(Player* player) {
   }
 }
 
-Boss* newBoss() {
+Boss* newBoss(SDL_Renderer* renderer) {
   Boss* boss = malloc(sizeof *boss);
   return boss;
 }
@@ -304,7 +347,7 @@ void destroyBoss(Boss* boss) {
   }
 }
 
-NPC* newNPC() {
+NPC* newNPC(SDL_Renderer* renderer) {
   NPC* npc = malloc(sizeof *npc);
   return npc;
 }
@@ -327,22 +370,32 @@ void destroyCurrentScene(TextRect* currentScene, int numSceneRects) {
       if (currentScene[i].font) {
         TTF_CloseFont(currentScene[i].font);
       }
+      if (currentScene[i].texture) {
+        SDL_DestroyTexture(currentScene[i].texture);
+      }
     }
     free(currentScene);
     currentScene = 0;
   }
 }
 
-TextRect* newTextRect(int x, int y, int w, int h, int fontSize ,char* filename, char* text, int isShown) {
+TextRect* newTextRect(SDL_Renderer *renderer,int x, int y, int w, int h, int fontSize ,char* filename, char* text, int isShown) {
   TextRect* textRect = malloc(sizeof *textRect);
 
+  textRect->font = loadText(filename, fontSize);
+
+  SDL_Surface* surface = TTF_RenderText_Solid(textRect->font, text, BLACK);
+
+  SDL_Texture* texture = SDL_CreateTextureFromSurface(renderer, surface);
+  SDL_FreeSurface(surface);
+
+  textRect->texture = texture;
   textRect->rect.x  = x;
   textRect->rect.y = y;
   textRect->rect.w = w;
   textRect->rect.h = h;
   textRect->text = text;
   textRect->isShown = isShown;
-  textRect->font = loadText(filename, fontSize);
   return textRect;
 }
 
@@ -351,12 +404,16 @@ void destroyTextRect(TextRect* textRect) {
     TTF_CloseFont(textRect->font);
     free(textRect);
     textRect = 0;
+    if (textRect->texture) {
+      SDL_DestroyTexture(textRect->texture);
+    }
   }
 }
 
-void loadTitleScene(Game* game) {
+void loadTitleScene(SDL_Renderer* renderer,Game* game) {
 
   TextRect* titleTextRect = newTextRect(
+    renderer,
     CENTER_WIDTH - 100,
     CENTER_HEIGHT - 150,
     200,
@@ -368,6 +425,7 @@ void loadTitleScene(Game* game) {
   );
 
   TextRect* subTitleTextRect = newTextRect(
+    renderer,
     CENTER_WIDTH - 100,
     CENTER_HEIGHT - 50,
     200,
@@ -379,6 +437,7 @@ void loadTitleScene(Game* game) {
   );
 
   TextRect* startGameTextRect = newTextRect(
+    renderer,
     CENTER_WIDTH - 100,
     CENTER_HEIGHT,
     200,
@@ -404,9 +463,10 @@ void loadTitleScene(Game* game) {
   }
 }
 
-void loadPlayScene(Game* game) {
+void loadPlayScene(SDL_Renderer* renderer,Game* game) {
   // TODO: main play scene
   TextRect* playingGameTextRect = newTextRect(
+    renderer,
     CENTER_WIDTH - 100,
     CENTER_HEIGHT,
     200,
@@ -433,35 +493,45 @@ void loadPlayScene(Game* game) {
   }
 }
 
-void loadFightScene(Game* game) {
+void loadFightScene(SDL_Renderer* renderer, Game* game) {
   // TODO: fight scene
 }
 
-void loadGameoverScene(Game* game) {
+void loadGameoverScene(SDL_Renderer* renderer, Game* game) {
   // TODO: Gameover scene
 }
 
-void loadGameWinScene(Game* game) {
+void loadGameWinScene(SDL_Renderer* renderer, Game* game) {
   // TODO: GameWin scene
 }
 
 // Definitions
-void renderText(SDL_Renderer *renderer,TTF_Font *font,SDL_Rect rect, char *text) {
-  SDL_Surface* surfaceMessage = TTF_RenderText_Solid(font, text, BLACK);
+void renderText(SDL_Renderer *renderer, SDL_Texture *texture, TTF_Font *font,SDL_Rect rect, char *text) {
+  SDL_RenderCopy(renderer, texture, NULL, &rect); 
+}
 
-  SDL_Texture* Message = SDL_CreateTextureFromSurface(renderer, surfaceMessage);
-  SDL_FreeSurface(surfaceMessage);
+void renderPlayScene(SDL_Renderer *renderer, Game* game) {
+  // renders:
+  // 1. Game Environment
+  // 2. Player
+  // 3. NPCs
+  // 4. Bosses
 
-  SDL_RenderCopy(renderer, Message, NULL, &rect); 
-  SDL_DestroyTexture(Message);
+
 }
 
 void renderScene(SDL_Renderer *renderer, Game* game) {
   // render scene specific stuff here
+  if (strncmp(game->currentSceneName, "play", 4) == 0) {
+    renderPlayScene(renderer, game);
+  }
+
+  // renders text of scene
   for (int i = 0; i < game->numSceneRects; ++i) {
     if (game->currentScene[i].isShown) {
       renderText(
         renderer, 
+        game->currentScene[i].texture,
         game->currentScene[i].font,  
         game->currentScene[i].rect, 
         game->currentScene[i].text
@@ -476,7 +546,7 @@ TTF_Font* loadText(const char *fileName, int fontSize) {
   return font;
 }
 
-Game* newGame(char* text) {
+Game* newGame(SDL_Renderer* renderer) {
   // TTF_Font* font = TTF_OpenFont(fileName, 24); //this opens a font style and sets a size
   // TODO: maybe add error handling here?
 
@@ -484,13 +554,14 @@ Game* newGame(char* text) {
   Game* game = malloc(sizeof *game);
 
   game->gameInput = newGameInput();
-  game->player = newPlayer();
+  game->gameMap = newGameMap(renderer);
+  game->player = newPlayer(renderer);
   game->inventory = newInventory();
-  game->firstBoss = newBoss();
-  game->finalBoss = newBoss();
-  game->maleOne = newNPC();
-  game->femaleOne = newNPC();
-  game->femaleTwo = newNPC();
+  game->firstBoss = newBoss(renderer);
+  game->finalBoss = newBoss(renderer);
+  game->maleOne = newNPC(renderer);
+  game->femaleOne = newNPC(renderer);
+  game->femaleTwo = newNPC(renderer);
   game->currentScene = 0;
 
   return game;
@@ -511,6 +582,7 @@ void cleanUp(SDL_Renderer *renderer,SDL_Window *window, Game* game) {
   destroyGame(game);
   SDL_DestroyRenderer(renderer);
   SDL_DestroyWindow(window);
+  IMG_Quit();
   SDL_Quit();
 }
 
@@ -549,11 +621,17 @@ int initGame(void) {
     printf("SDL_CreateRenderer Error: %s \n", SDL_GetError());
     SDL_Quit();
     return 1;
-  }    
+  } 
+
+  // for allowing loading of PNG files. IMG_INIT_PNG == 2
+  if(IMG_Init(IMG_INIT_PNG) != 2){
+    printf( "SDL_image could not initialize! SDL_image Error: %s\n", IMG_GetError() );
+    return 1;
+  }   
 
   // TODO: refactor game struct initializer
-  Game* game = newGame("SOME TITLE");
-  loadTitleScene(game);
+  Game* game = newGame(renderer);
+  loadTitleScene(renderer, game);
 
   int loop = 1;
 
@@ -566,7 +644,7 @@ int initGame(void) {
     currentTime = SDL_GetTicks();
     if ((currentTime - lastTime) < 1000) {
       dt = (currentTime - lastTime);
-      update(game, dt);
+      update(renderer,game, dt);
     }
     lastTime = currentTime;
     render(renderer, game);
