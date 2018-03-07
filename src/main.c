@@ -6,6 +6,12 @@
 
 #define SCREEN_WIDTH 640
 #define SCREEN_HEIGHT 480
+#define SPRITE_WIDTH 64
+#define SPRITE_HEIGHT 64
+#define COMPUTER_WIDTH 55
+#define COMPUTER_HEIGHT 50
+#define TILE_HEIGHT 20
+#define TILE_WIDTH 20
 #define CENTER_WIDTH SCREEN_WIDTH / 2
 #define CENTER_HEIGHT  SCREEN_HEIGHT / 2
 #define TRUE 1
@@ -29,10 +35,14 @@ typedef struct {
 
 typedef struct {
   int health;
-  int status;
+  int status; // TODO: enum values for different statuses
   int timeScore;
   int reportEff;
   SDL_Texture* texture;  
+  SDL_Rect srcRect;
+  SDL_Rect destRect;
+  int x;
+  int y;
 } Player;
 
 typedef struct {
@@ -40,12 +50,30 @@ typedef struct {
   int status;
   char* name;
   SDL_Texture* texture;  
+  // NOTE: srcRect relates to the texture, not any game location
+  SDL_Rect srcRect;
+  SDL_Rect destRect;
+  int x;
+  int y;
 } Boss;
+
+typedef struct {
+  char* itemName;
+  SDL_Texture* texture;  
+  SDL_Rect srcRect;
+  SDL_Rect destRect;
+  int x;
+  int y;
+} Item;
 
 typedef struct {
   int startX, startY;
   int endX, endY;
   SDL_Texture* texture;
+  SDL_Rect srcRect;
+  SDL_Rect destRect;
+  int x;
+  int y;
 } NPC;
 
 typedef struct {
@@ -74,6 +102,8 @@ typedef struct {
   NPC* femaleOne;
   NPC* femaleTwo;
   Inventory* inventory;
+  // TODO: add waterCooler and copier Items :)
+  Item* computer;
   char* currentSceneName;
 } Game;
 
@@ -86,11 +116,13 @@ GameMap* newGameMap(SDL_Renderer* renderer);
 void destroyGameMap(GameMap* gameMap);
 Inventory* newInventory();
 void destroyInventory(Inventory* inventory);
+Item* newItem(SDL_Renderer* renderer, char* itemName, char* filename, int width, int height);
+void destroyItem(Item* item);
 Player* newPlayer(SDL_Renderer* renderer);
 void destroyPlayer(Player* player);
-Boss* newBoss(SDL_Renderer* renderer);
+Boss* newBoss(SDL_Renderer* renderer, char* filename);
 void destroyBoss(Boss* boss);
-NPC* newNPC(SDL_Renderer* renderer);
+NPC* newNPC(SDL_Renderer* renderer, char* filename);
 void destroyNPC(NPC* npc);
 TextRect* newCurrentScene(int numSceneRects);
 void destroyCurrentScene(TextRect* textRect, int numSceneRects);
@@ -118,6 +150,10 @@ TTF_Font* loadText(const char *fileName, int fontSize);
 void renderText(SDL_Renderer *renderer, SDL_Texture *texture,TTF_Font *font,SDL_Rect rect, char *text);
 void render(SDL_Renderer *renderer, Game* game);
 void renderMap(SDL_Renderer * renderer, Game* game);
+void renderMapTile(SDL_Renderer *renderer, Game* game, SDL_Texture* texture, SDL_Rect* destRect);
+void renderPlayer(SDL_Renderer *renderer, Game* game);
+void renderNPC(SDL_Renderer *renderer, Game* game, NPC* npc);
+void renderBoss(SDL_Renderer *renderer, Game* game, Boss* boss);
 void renderScene(SDL_Renderer *renderer,Game* game);
 void renderPlayScene(SDL_Renderer *renderer, Game* game);
 void updateScene(SDL_Renderer *renderer, Game* game);
@@ -300,6 +336,7 @@ void destroyGame(Game* game) {
     destroyPlayer(game->player);
     destroyGameInput(game->gameInput);
     destroyInventory(game->inventory);
+    destroyItem(game->computer);
     destroyBoss(game->firstBoss);
     destroyBoss(game->finalBoss);
     destroyNPC(game->maleOne);
@@ -325,37 +362,152 @@ void destroyInventory(Inventory* inventory) {
 
 Player* newPlayer(SDL_Renderer* renderer) {
   Player* player = malloc(sizeof *player);
+
+  SDL_Surface* image = IMG_Load("../assets/main_character.png");
+  SDL_Texture* texture = SDL_CreateTextureFromSurface(renderer, image);
+  SDL_FreeSurface(image);
+  SDL_Rect srcRect;
+  SDL_Rect destRect;
+  srcRect.x = 0;
+  srcRect.y = 0;
+  srcRect.w = SPRITE_WIDTH;
+  srcRect.h = SPRITE_HEIGHT;
+  destRect.x = 0;
+  destRect.y = 0;
+  destRect.w = SPRITE_WIDTH;
+  destRect.h = SPRITE_HEIGHT;
+
+  player->srcRect = srcRect;
+  player->destRect = destRect;
+  player->x = 0;
+  player->y = 0;
+  player->health = 100;
+  player->timeScore = 0;
+  player->reportEff = 1;
+  player->status = 1;
+  player->texture = texture;
+
   return player;
 }
 
 void destroyPlayer(Player* player) {
   if (player) {
+    if (player->texture) {
+      SDL_DestroyTexture(player->texture);
+    }
     free(player);
     player = 0;
   }
 }
 
-Boss* newBoss(SDL_Renderer* renderer) {
+Boss* newBoss(SDL_Renderer* renderer, char* filename) {
   Boss* boss = malloc(sizeof *boss);
+  SDL_Surface* image = IMG_Load(filename);
+  SDL_Texture* texture = SDL_CreateTextureFromSurface(renderer, image);
+  SDL_FreeSurface(image);
+
+  SDL_Rect srcRect;
+  SDL_Rect destRect;
+  srcRect.x = 0;
+  srcRect.y = 0;
+  srcRect.w = SPRITE_WIDTH;
+  srcRect.h = SPRITE_HEIGHT;
+  destRect.x = 0;
+  destRect.y = 0;
+  destRect.w = SPRITE_WIDTH;
+  destRect.h = SPRITE_HEIGHT;
+
+  boss->srcRect = srcRect;
+  boss->destRect = destRect;
+  boss->x = 0;
+  boss->y = 0;
+  boss->health = 100;
+  boss->status = 1;
+  boss->texture = texture;
+
   return boss;
 }
 
 void destroyBoss(Boss* boss) {
   if (boss) {
+    if (boss->texture) {
+      SDL_DestroyTexture(boss->texture);
+    }
     free(boss);
     boss = 0;
   }
 }
 
-NPC* newNPC(SDL_Renderer* renderer) {
+NPC* newNPC(SDL_Renderer* renderer, char* filename) {
   NPC* npc = malloc(sizeof *npc);
+  SDL_Surface* image = IMG_Load(filename);
+  SDL_Texture* texture = SDL_CreateTextureFromSurface(renderer, image);
+  SDL_FreeSurface(image);
+  
+  SDL_Rect srcRect;
+  SDL_Rect destRect;
+  srcRect.x = 0;
+  srcRect.y = 0;
+  srcRect.w = SPRITE_WIDTH;
+  srcRect.h = SPRITE_HEIGHT;
+  destRect.x = 0;
+  destRect.y = 0;
+  destRect.w = SPRITE_WIDTH;
+  destRect.h = SPRITE_HEIGHT;
+
+  npc->srcRect = srcRect;
+  npc->destRect = destRect;
+  npc->x = 0;
+  npc->y = 0;
+  npc->texture = texture;
+
   return npc;
 }
 
 void destroyNPC(NPC* npc) {
   if (npc) {
+    if (npc->texture) {
+      SDL_DestroyTexture(npc->texture);
+    }
     free(npc);
     npc = 0;
+  }
+}
+
+Item* newItem(SDL_Renderer* renderer, char* itemName, char* filename, int width, int height) {
+  Item* item = malloc(sizeof *item);
+  SDL_Surface* image = IMG_Load(filename);
+  SDL_Texture* texture = SDL_CreateTextureFromSurface(renderer, image);
+  SDL_FreeSurface(image);
+  
+  SDL_Rect srcRect;
+  SDL_Rect destRect;
+  srcRect.x = 0;
+  srcRect.y = 0;
+  srcRect.w = width;
+  srcRect.h = height;
+  destRect.x = 0;
+  destRect.y = 0;
+  destRect.w = width;
+  destRect.h = height;
+
+  item->itemName = itemName;
+  item->srcRect = srcRect;
+  item->destRect = destRect;
+  item->x = 0;
+  item->y = 0;
+  item->texture = texture;
+
+  return item;
+}
+
+void destroyItem(Item* item) {
+  if (item) {
+    if (item->texture) {
+      SDL_DestroyTexture(item->texture);
+    }
+    free(item);
+    item = 0;
   }
 }
 
@@ -477,12 +629,12 @@ void loadPlayScene(SDL_Renderer* renderer,Game* game) {
     1
   );
   
-  game->currentSceneName = "play";
-  TextRect* playSceneRects[1] = {playingGameTextRect};
-  
   if (game->currentScene) {
     destroyCurrentScene(game->currentScene, game->numSceneRects);
   }
+
+  game->currentSceneName = "play";
+  TextRect* playSceneRects[1] = {playingGameTextRect};
 
   game->numSceneRects = 1;
   game->currentScene = newCurrentScene(1);
@@ -494,7 +646,7 @@ void loadPlayScene(SDL_Renderer* renderer,Game* game) {
 }
 
 void loadFightScene(SDL_Renderer* renderer, Game* game) {
-  // TODO: fight scene
+  // TODO: mini game fight scene
 }
 
 void loadGameoverScene(SDL_Renderer* renderer, Game* game) {
@@ -510,12 +662,109 @@ void renderText(SDL_Renderer *renderer, SDL_Texture *texture, TTF_Font *font,SDL
   SDL_RenderCopy(renderer, texture, NULL, &rect); 
 }
 
+void renderMap(SDL_Renderer * renderer, Game* game) {
+  // renderMapTile(renderer, game);
+  // TODO: for all local SDL_Rect types in specific render functions: remove and reference
+  // the object on the game object instead
+  SDL_Rect wallDestRect;
+  wallDestRect.x = 40;
+  wallDestRect.y = 40;
+  wallDestRect.w = TILE_WIDTH;
+  wallDestRect.h = TILE_HEIGHT;
+  renderMapTile(renderer, game, game->gameMap->wallTexture, &wallDestRect);
+
+  SDL_Rect groundDestRect;
+  groundDestRect.x = 80;
+  groundDestRect.y = 40;
+  groundDestRect.w = TILE_WIDTH;
+  groundDestRect.h = TILE_HEIGHT;
+  renderMapTile(renderer, game, game->gameMap->groundTexture, &groundDestRect);
+}
+
+void renderMapTile(SDL_Renderer *renderer, Game* game, SDL_Texture* texture, SDL_Rect* destRect) {
+  SDL_RenderCopy(renderer, texture, NULL, destRect); 
+}
+
+void renderPlayer(SDL_Renderer *renderer, Game* game) {
+  SDL_Rect playerSrcRect;
+  playerSrcRect.x = 0;
+  playerSrcRect.y = 0;
+  playerSrcRect.w = SPRITE_WIDTH;
+  playerSrcRect.h = SPRITE_HEIGHT;
+
+  SDL_Rect playerDestRect;
+  playerDestRect.x = 340;
+  playerDestRect.y = 40;
+  playerDestRect.w = SPRITE_WIDTH;
+  playerDestRect.h = SPRITE_HEIGHT;
+  SDL_RenderCopyEx(renderer, game->player->texture, &playerSrcRect, &playerDestRect, 0, NULL, SDL_FLIP_NONE); 
+}
+
+void renderNPC(SDL_Renderer *renderer, Game* game, NPC* npc) {
+  SDL_Rect npcSrcRect;
+  npcSrcRect.x = 0;
+  npcSrcRect.y = 0;
+  npcSrcRect.w = SPRITE_WIDTH;
+  npcSrcRect.h = SPRITE_HEIGHT;
+
+  SDL_Rect npcDestRect;
+  npcDestRect.x = 240;
+  npcDestRect.y = 80;
+  npcDestRect.w = SPRITE_WIDTH;
+  npcDestRect.h = SPRITE_HEIGHT;
+  SDL_RenderCopyEx(renderer, npc->texture, &npcSrcRect, &npcDestRect, 0, NULL, SDL_FLIP_NONE); 
+
+  // SDL_RenderCopyEx(renderer, texture, NULL, &rect, 0, NULL, SDL_FLIP_NONE); 
+}
+
+void renderItem(SDL_Renderer *renderer, Game* game, Item* item) {
+  SDL_Rect itemSrcRect;
+  itemSrcRect.x = 0;
+  itemSrcRect.y = 0;
+  itemSrcRect.w = COMPUTER_WIDTH;
+  itemSrcRect.h = COMPUTER_HEIGHT;
+
+  SDL_Rect itemDestRect;
+  itemDestRect.x = 240;
+  itemDestRect.y = 80;
+  itemDestRect.w = COMPUTER_WIDTH;
+  itemDestRect.h = COMPUTER_HEIGHT;
+  SDL_RenderCopyEx(renderer, item->texture, &itemSrcRect, &itemDestRect, 0, NULL, SDL_FLIP_NONE); 
+
+}
+
+void renderBoss(SDL_Renderer *renderer, Game* game, Boss* boss) {
+  SDL_Rect bossSrcRect;
+  bossSrcRect.x = 0;
+  bossSrcRect.y = 0;
+  bossSrcRect.w = SPRITE_WIDTH;
+  bossSrcRect.h = SPRITE_HEIGHT;
+
+  SDL_Rect bossDestRect;
+  bossDestRect.x = 140;
+  bossDestRect.y = 80;
+  bossDestRect.w = SPRITE_WIDTH;
+  bossDestRect.h = SPRITE_HEIGHT;
+  SDL_RenderCopyEx(renderer, boss->texture, &bossSrcRect, &bossDestRect, 0, NULL, SDL_FLIP_NONE); 
+
+  // SDL_RenderCopyEx(renderer, texture, NULL, &rect, 0, NULL, SDL_FLIP_NONE); 
+}
+
 void renderPlayScene(SDL_Renderer *renderer, Game* game) {
   // renders:
-  // 1. Game Environment
-  // 2. Player
-  // 3. NPCs
-  // 4. Bosses
+  // 1. Game Environment - TODO: in progress
+  // 2. Player - TODO: in progress
+  // 3. NPCs - TODO: in progress
+  // 4. Bosses - TODO: in progress
+  
+  renderMap(renderer, game);
+  renderPlayer(renderer, game);
+  renderItem(renderer,game, game->computer);
+  renderNPC(renderer, game, game->maleOne);
+  renderNPC(renderer, game, game->femaleOne);
+  renderNPC(renderer, game, game->femaleTwo);
+  renderBoss(renderer, game, game->firstBoss);
+  renderBoss(renderer, game, game->finalBoss);
 
 
 }
@@ -526,7 +775,7 @@ void renderScene(SDL_Renderer *renderer, Game* game) {
     renderPlayScene(renderer, game);
   }
 
-  // renders text of scene
+  // renders text of scene - assuming every scene has text
   for (int i = 0; i < game->numSceneRects; ++i) {
     if (game->currentScene[i].isShown) {
       renderText(
@@ -557,11 +806,12 @@ Game* newGame(SDL_Renderer* renderer) {
   game->gameMap = newGameMap(renderer);
   game->player = newPlayer(renderer);
   game->inventory = newInventory();
-  game->firstBoss = newBoss(renderer);
-  game->finalBoss = newBoss(renderer);
-  game->maleOne = newNPC(renderer);
-  game->femaleOne = newNPC(renderer);
-  game->femaleTwo = newNPC(renderer);
+  game->computer = newItem(renderer, "computer", "../assets/workstation-computer-55x50.png", COMPUTER_WIDTH, COMPUTER_HEIGHT);
+  game->firstBoss = newBoss(renderer, "../assets/first_boss.png");
+  game->finalBoss = newBoss(renderer, "../assets/final_boss.png");
+  game->maleOne = newNPC(renderer, "../assets/male_1.png");
+  game->femaleOne = newNPC(renderer, "../assets/female_1.png");
+  game->femaleTwo = newNPC(renderer, "../assets/female_1.png");
   game->currentScene = 0;
 
   return game;
