@@ -28,6 +28,13 @@
 SDL_Color WHITE = {255, 255, 255};
 SDL_Color BLACK = {0, 0, 0};
 
+char* globalTextBuffer[2048];
+
+int updatePlayerHealthText = 0;
+int updateTimeScoreText = 0;
+int updateReportEffText = 0;
+int updateReportAmmoText = 0;
+
 unsigned char gameMapArr[MAP_W * MAP_H] = {
   1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
   1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
@@ -66,6 +73,7 @@ typedef struct {
 
 typedef struct {
   int reportAmmo;
+  int generatedReports;
   int coffee;
 } Inventory;
 
@@ -195,6 +203,7 @@ void handleInput(Game* game, int *loop);
 void update(SDL_Renderer* renderer,Game* game, float dt);
 
 void updateTitleScene(SDL_Renderer* renderer, Game* game, float dt);
+void updateTextRect(SDL_Renderer* renderer, TextRect* textRect, int nextVal, SDL_Color color);
 void updatePlayScene(SDL_Renderer* renderer, Game* game, float dt);
 void updateSprite(Sprite* sprite, float dt);
 void updateGameoverScene(SDL_Renderer* renderer, Game* game, float dt);
@@ -210,6 +219,7 @@ void loadGameWinScene(SDL_Renderer* renderer,Game* game);
 void cleanUp(SDL_Renderer *renderer,SDL_Window *window, Game* game);
 TTF_Font* loadText(const char *fileName, int fontSize);
 void renderText(SDL_Renderer *renderer, SDL_Texture *texture,TTF_Font *font,SDL_Rect rect, char *text);
+void updateText(SDL_Renderer *renderer, SDL_Texture *texture,TTF_Font *font,SDL_Rect rect, char *text);
 void render(SDL_Renderer *renderer, Game* game);
 void renderMap(SDL_Renderer * renderer, Game* game);
 void renderMapTile(SDL_Renderer *renderer, Game* game, SDL_Texture* texture, SDL_Rect* destRect);
@@ -224,6 +234,7 @@ void handleMouseDown(Game* game);
 
 void updateTitleScene(SDL_Renderer* renderer,Game* game, float dt) {
   // printf("UPDATE TITLE SCENE: %s\n", game->currentSceneName);  
+
   if (game->gameInput->whichKey == SDL_SCANCODE_RETURN) {
     SDL_SetRenderDrawColor(renderer, 255, 105, 180, 255);
     loadPlayScene(renderer,game);
@@ -351,14 +362,6 @@ int getPlayerCollision(Game* game, Player* player) {
       // printf("hit maleOne\n");
       // fflush(stdout);
       game->maleOne->isEnabled = 1;
-      // game->maleOne->isEnabled = 0;
-      game->femaleOne->isEnabled = 0;
-      game->femaleTwo->isEnabled = 0;
-      game->firstBoss->isEnabled = 0;
-      game->copier->isEnabled = 0;
-      game->waterCooler->isEnabled = 0;
-      game->computer->isEnabled = 0;
-      game->finalBoss->isEnabled = 0;
     }
   } 
   if (player->x + SPRITE_WIDTH >= game->femaleOne->x && player->x <= game->femaleOne->x + SPRITE_WIDTH) {
@@ -366,14 +369,6 @@ int getPlayerCollision(Game* game, Player* player) {
       // printf("hit femaleOne\n");
       // fflush(stdout);
       game->femaleOne->isEnabled = 1;
-      game->maleOne->isEnabled = 0;
-      // game->femaleOne->isEnabled = 0;
-      game->femaleTwo->isEnabled = 0;
-      game->firstBoss->isEnabled = 0;
-      game->copier->isEnabled = 0;
-      game->waterCooler->isEnabled = 0;
-      game->computer->isEnabled = 0;
-      game->finalBoss->isEnabled = 0;    
     }
   } 
   if (player->x + SPRITE_WIDTH >= game->femaleTwo->x && player->x <= game->femaleTwo->x + SPRITE_WIDTH) {
@@ -381,29 +376,13 @@ int getPlayerCollision(Game* game, Player* player) {
       // printf("hit femaleTwo\n");
       // fflush(stdout);
       game->femaleTwo->isEnabled = 1;
-      game->maleOne->isEnabled = 0;
-      game->femaleOne->isEnabled = 0;
-      // game->femaleTwo->isEnabled = 0;
-      game->firstBoss->isEnabled = 0;
-      game->copier->isEnabled = 0;
-      game->waterCooler->isEnabled = 0;
-      game->computer->isEnabled = 0;
-      game->finalBoss->isEnabled = 0;   
     }
   } 
   if (player->x + SPRITE_WIDTH >= game->firstBoss->x && player->x <= game->firstBoss->x + SPRITE_WIDTH) {
     if (player->y + SPRITE_HEIGHT >= game->firstBoss->y && player->y <= game->firstBoss->y + SPRITE_HEIGHT) {
       // printf("hit firstBoss\n");
       // fflush(stdout);
-      game->firstBoss->isEnabled = 1;
-      game->maleOne->isEnabled = 0;
-      game->femaleOne->isEnabled = 0;
-      game->femaleTwo->isEnabled = 0;
-      // game->firstBoss->isEnabled = 0;
-      game->copier->isEnabled = 0;
-      game->waterCooler->isEnabled = 0;
-      game->computer->isEnabled = 0;
-      game->finalBoss->isEnabled = 0;    
+      game->firstBoss->isEnabled = 1;  
     }
   }
   if (player->x + SPRITE_WIDTH >= game->copier->x && player->x <= game->copier->x + COPIER_WIDTH) {
@@ -411,14 +390,6 @@ int getPlayerCollision(Game* game, Player* player) {
       // printf("hit copier\n");
       // fflush(stdout);
       game->copier->isEnabled = 1;
-      game->maleOne->isEnabled = 0;
-      game->femaleOne->isEnabled = 0;
-      game->femaleTwo->isEnabled = 0;
-      game->firstBoss->isEnabled = 0;
-      // game->copier->isEnabled = 0;
-      game->waterCooler->isEnabled = 0;
-      game->computer->isEnabled = 0;
-      game->finalBoss->isEnabled = 0;
     }
   } 
   if (player->x + SPRITE_WIDTH >= game->waterCooler->x && player->x <= game->waterCooler->x + WATERCOOLER_WIDTH) {
@@ -426,14 +397,6 @@ int getPlayerCollision(Game* game, Player* player) {
       // printf("hit waterCooler\n");
       // fflush(stdout);
       game->waterCooler->isEnabled = 1;
-      game->maleOne->isEnabled = 0;
-      game->femaleOne->isEnabled = 0;
-      game->femaleTwo->isEnabled = 0;
-      game->firstBoss->isEnabled = 0;
-      game->copier->isEnabled = 0;
-      // game->waterCooler->isEnabled = 0;
-      game->computer->isEnabled = 0;
-      game->finalBoss->isEnabled = 0;
     }
   } 
   if (player->x + SPRITE_WIDTH >= game->computer->x && player->x <= game->computer->x + COMPUTER_WIDTH) {
@@ -441,14 +404,6 @@ int getPlayerCollision(Game* game, Player* player) {
       // printf("hit computer\n");
       // fflush(stdout);
       game->computer->isEnabled = 1;
-      game->maleOne->isEnabled = 0;
-      game->femaleOne->isEnabled = 0;
-      game->femaleTwo->isEnabled = 0;
-      game->firstBoss->isEnabled = 0;
-      game->copier->isEnabled = 0;
-      game->waterCooler->isEnabled = 0;
-      // game->computer->isEnabled = 0;
-      game->finalBoss->isEnabled = 0;
     }
   } 
   if (player->x + SPRITE_WIDTH >= game->finalBoss->x && player->x <= game->finalBoss->x + SPRITE_WIDTH) {
@@ -456,14 +411,6 @@ int getPlayerCollision(Game* game, Player* player) {
       // printf("hit finalBoss\n");
       // fflush(stdout);
       game->finalBoss->isEnabled = 1;
-      game->maleOne->isEnabled = 0;
-      game->femaleOne->isEnabled = 0;
-      game->femaleTwo->isEnabled = 0;
-      game->firstBoss->isEnabled = 0;
-      game->copier->isEnabled = 0;
-      game->waterCooler->isEnabled = 0;
-      game->computer->isEnabled = 0;
-      // game->finalBoss->isEnabled = 0;
     }
   } 
 
@@ -483,6 +430,24 @@ void updatePlayScene(SDL_Renderer* renderer,Game* game, float dt) {
   // game->maleOne->x += dt / 10;
   // printf("maleOne X: %u\n",game->maleOne->x);
   // updateSprite(game->maleOne->sprite, dt);
+  if (updatePlayerHealthText == 0) {
+    updateTextRect(renderer, &game->currentScene[0],game->player->health, WHITE);
+    updatePlayerHealthText = 1;
+  }
+
+  if (updateTimeScoreText == 0) {
+    updateTextRect(renderer, &game->currentScene[1],game->player->timeScore, WHITE);
+    updateTimeScoreText = 1;
+  }
+
+  if (updateReportEffText == 0) {
+    updateTextRect(renderer, &game->currentScene[2],1, WHITE);
+    updateReportEffText = 1;
+  }
+  if (updateReportAmmoText == 0) {
+    updateTextRect(renderer, &game->currentScene[3],game->inventory->reportAmmo, WHITE);
+    updateReportAmmoText = 1;
+  }
 
   if (game->gameInput->isKeyDown && game->gameInput->whichKey) {
     game->femaleOne->isEnabled = 0;
@@ -612,44 +577,111 @@ void handleMouseDown(Game* game) {
   }
 
   if (game->computer->isEnabled) {
-    printf("add +1 to generated reports\n");
-    fflush(stdout);
+    // printf("add +1 to generated reports\n");
+    // fflush(stdout);
+    if (game->inventory->generatedReports < 5) {
+      game->inventory->generatedReports += 1;
+      // updateReportAmmoText = 0;
+    }
+    if (game->player->timeScore < 5) {
+      game->player->timeScore += 1;
+      updateTimeScoreText = 0;
+    }
     return;
   }
 
   if (game->femaleOne->isEnabled) {
     printf("add +1 to time score: femaleOne Conversation\n");
+    game->player->timeScore += 1;
+    if (game->player->timeScore >= 8) {
+      game->player->timeScore = 8;
+      printf(" ***femaleOne speaking: go to boss now!***\n");
+    } else {
+      printf("**femaleOne making convo**\n");
+      updateTimeScoreText = 0;
+    }
     fflush(stdout);
     return;
   }
   if (game->femaleTwo->isEnabled) {
     printf("add +1 to time score: femaleTwo Conversation\n");
+    game->player->timeScore += 1;
+    if (game->player->timeScore > 8) {
+      game->player->timeScore = 8;
+      // updateTimeScoreText = 0;
+      printf(" ***femaleTwo speaking: go to boss now!***\n");
+    } else {
+      printf("**femaleTwo making convo**\n");
+      updateTimeScoreText = 0;
+    }
     fflush(stdout);
     return;
   }
   if (game->maleOne->isEnabled) {
     printf("add +1 to time score: maleOne Conversation\n");
+    game->player->timeScore += 1;
+    if (game->player->timeScore > 8) {
+      game->player->timeScore = 8;
+      printf(" ***maleOne speaking: go to boss now!***\n");
+    } else {
+      printf("**maleOne making convo**\n");
+      updateTimeScoreText = 0;
+    }
     fflush(stdout);
     return;
   }
   if (game->copier->isEnabled) {
     printf("add +1 to report ammo\n");
     fflush(stdout);
+    if (game->inventory->generatedReports <= 0) {
+      printf("need to generate reports first!\n");
+      game->inventory->generatedReports = 0;
+      fflush(stdout);
+      return;
+    }
+    if (game->inventory->reportAmmo < 5) {
+      game->inventory->generatedReports -= 1;
+      printf("add +1 to report ammo and -1 to gener. reports\n");
+      fflush(stdout);
+      game->inventory->reportAmmo += 1;
+      updateReportAmmoText = 0;
+    }
     return;
   }
   if (game->waterCooler->isEnabled) {
-    printf("add +20 to health\n");
-    fflush(stdout);
+    game->player->health += 20;
+    if (game->player->health >= 100) {
+      game->player->health = 100;
+    } else {
+      updatePlayerHealthText = 0;
+      printf("add +20 to health\n");
+      fflush(stdout);
+    }
     return;
   }
   if (game->firstBoss->isEnabled) {
-    printf("enter first boss fight scene - win and beat level\n");
-    fflush(stdout);
+    if (game->player->timeScore == 8) {
+      printf("enter first boss fight scene - win and beat level\n");
+      fflush(stdout);
+      // TODO:  load first boss fight scene here
+    } else {
+      printf("increase times score first before -firstBoss- !\n");
+      fflush(stdout);
+    }
     return;
   }
   if (game->finalBoss->isEnabled) {
-    printf("enter final boss fight scene - win and beat game\n");
-    fflush(stdout);
+    if (game->player->timeScore == 8 && game->firstBoss->health != 0) {
+      printf("enter final boss fight scene - win and beat game\n");
+      fflush(stdout);
+      // TODO:  load final boss fight scene here
+    } else if (game->firstBoss->health != 0) {
+      printf("beat first boss before -finalboss- !\n");
+      fflush(stdout);
+    } else {
+      printf("increase times score first before -finalboss- !\n");
+      fflush(stdout);
+    }
     return;
   }
 
@@ -775,6 +807,9 @@ void destroyGame(Game* game) {
 
 Inventory* newInventory() {
   Inventory* inventory = malloc(sizeof *inventory);
+  inventory->reportAmmo = 0;
+  inventory->coffee = 0;
+  inventory->generatedReports = 0;
   return inventory;
 }
 
@@ -997,7 +1032,6 @@ TextRect* newTextRect(SDL_Renderer *renderer,int x, int y, int w, int h, int fon
   TextRect* textRect = malloc(sizeof *textRect);
 
   textRect->font = loadText(filename, fontSize);
-
   SDL_Surface* surface = TTF_RenderText_Solid(textRect->font, text, color);
 
   SDL_Texture* texture = SDL_CreateTextureFromSurface(renderer, surface);
@@ -1011,6 +1045,21 @@ TextRect* newTextRect(SDL_Renderer *renderer,int x, int y, int w, int h, int fon
   textRect->text = text;
   textRect->isShown = isShown;
   return textRect;
+}
+
+void updateTextRect (SDL_Renderer* renderer, TextRect* textRect, int nextVal, SDL_Color color) {
+  char buffer[2048];
+
+  if (textRect->texture) {
+    SDL_DestroyTexture(textRect->texture);
+  }
+  sprintf(buffer, textRect->text, nextVal);
+  SDL_Surface* surface = TTF_RenderText_Solid(textRect->font, buffer, color);
+
+  SDL_Texture* texture = SDL_CreateTextureFromSurface(renderer, surface);
+  SDL_FreeSurface(surface);
+  
+  textRect->texture = texture;
 }
 
 void destroyTextRect(TextRect* textRect) {
@@ -1084,15 +1133,51 @@ void loadTitleScene(SDL_Renderer* renderer,Game* game) {
 
 void loadPlayScene(SDL_Renderer* renderer,Game* game) {
   // TODO: main play scene
-  TextRect* playingGameTextRect = newTextRect(
+  TextRect* playerHealthText = newTextRect(
     renderer,
     SCREEN_WIDTH * 0.03,
     SCREEN_HEIGHT * 0.92,
-    100,
-    30, 
-    50,
+    150,
+    25, 
+    40,
     "../assets/OpenSans-Bold.ttf",
-    "HEALTH:",
+    "Health: %u",
+    SHOW_TEXT,
+    WHITE
+  );
+  TextRect* timeScoreText = newTextRect(
+    renderer,
+    SCREEN_WIDTH * 0.60,
+    SCREEN_HEIGHT * 0.01,
+    200,
+    25, 
+    40,
+    "../assets/OpenSans-Bold.ttf",
+    "Time Score: %u/8",
+    SHOW_TEXT,
+    WHITE
+  );
+  TextRect* reportEffText = newTextRect(
+    renderer,
+    SCREEN_WIDTH * 0.03,
+    SCREEN_HEIGHT * 0.01,
+    200,
+    25, 
+    40,
+    "../assets/OpenSans-Bold.ttf",
+    "Report Eff: x%u",
+    SHOW_TEXT,
+    WHITE
+  );
+  TextRect* reportAmmoText = newTextRect(
+    renderer,
+    SCREEN_WIDTH * 0.60,
+    SCREEN_HEIGHT * 0.92,
+    200,
+    25, 
+    40,
+    "../assets/OpenSans-Bold.ttf",
+    "Report Ammo: %u/5",
     SHOW_TEXT,
     WHITE
   );
@@ -1132,14 +1217,17 @@ void loadPlayScene(SDL_Renderer* renderer,Game* game) {
   game->waterCooler->y = 50;
 
   game->computer->x = 50;
-  game->computer->y = 30;
+  game->computer->y = 35;
 
-  TextRect* playSceneRects[1] = {playingGameTextRect};
+  // sprintf(globalTextBuffer, playerHealthText->text ,game->player->health);
+  // playerHealthText->text = globalTextBuffer;
 
-  game->numSceneRects = 1;
-  game->currentScene = newCurrentScene(1);
+  TextRect* playSceneRects[4] = {playerHealthText,timeScoreText,reportEffText,reportAmmoText};
 
-  for (int i = 0; i < 1; ++i) {
+  game->numSceneRects = 4;
+  game->currentScene = newCurrentScene(4);
+
+  for (int i = 0; i < 4; ++i) {
     game->currentScene[i] = *playSceneRects[i];
     printf("test again: %s \n", game->currentScene[i].text);
   }
