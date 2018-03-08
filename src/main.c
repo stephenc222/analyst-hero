@@ -106,6 +106,7 @@ typedef struct {
   Sprite* sprite;
   int x;
   int y;
+  unsigned char isEnabled;
 } Boss;
 
 typedef struct {
@@ -115,6 +116,7 @@ typedef struct {
   SDL_Rect destRect;
   int x;
   int y;
+  unsigned char isEnabled;
 } Item;
 
 typedef struct {
@@ -126,6 +128,7 @@ typedef struct {
   Sprite* sprite;  
   int x;
   int y;
+  unsigned char isEnabled;
 } NPC;
 
 typedef struct {
@@ -154,7 +157,6 @@ typedef struct t_Game {
   NPC* femaleOne;
   NPC* femaleTwo;
   Inventory* inventory;
-  // TODO: add waterCooler and copier Items :)
   Item* computer;
   Item* waterCooler;
   Item* copier;
@@ -218,6 +220,7 @@ void renderScene(SDL_Renderer *renderer,Game* game);
 void renderPlayScene(SDL_Renderer *renderer, Game* game);
 void renderTitleScene(SDL_Renderer *renderer, Game* game);
 void handleWhichKey(Game* game, SDL_Keysym *keysym);
+void handleMouseDown(Game* game);
 
 void updateTitleScene(SDL_Renderer* renderer,Game* game, float dt) {
   // printf("UPDATE TITLE SCENE: %s\n", game->currentSceneName);  
@@ -262,7 +265,9 @@ void renderPlayer(SDL_Renderer* renderer,Game* game, Player* player) {
   // set the destination rect coords
 	player->destRect.x = (int)player->x;
 	player->destRect.y = (int)player->y;
-	
+
+	// TODO: remove this, this is for helping with collision detection
+  SDL_RenderDrawRect(renderer,&player->destRect);
   // blast the player->sprite frame to the renderer target
 	SDL_RenderCopyEx(
 	  renderer,
@@ -273,7 +278,6 @@ void renderPlayer(SDL_Renderer* renderer,Game* game, Player* player) {
     0, // no rotation center point (uses center of sprite if rotation above has a value)
     player->sprite->hflip // not flipped
   );
-  SDL_RenderDrawRect(renderer,&player->destRect);
 }
 
 void renderNPC(SDL_Renderer* renderer,Game* game, NPC* npc) {
@@ -286,6 +290,11 @@ void renderNPC(SDL_Renderer* renderer,Game* game, NPC* npc) {
 	npc->destRect.y = (int)npc->y;
 	
   // blast the npc->sprite frame to the renderer target
+	// TODO: remove this, this is for helping with collision detection
+  if (npc->isEnabled) {
+    SDL_RenderFillRect(renderer,&npc->destRect);
+  }
+
 	SDL_RenderCopyEx(
 	  renderer,
     npc->texture,
@@ -305,6 +314,11 @@ void renderBoss(SDL_Renderer* renderer,Game* game, Boss* boss) {
   // set the destination rect coords
 	boss->destRect.x = (int)boss->x;
 	boss->destRect.y = (int)boss->y;
+
+  // TODO: remove this, this is for helping with collision detection
+  if (boss->isEnabled) {
+    SDL_RenderFillRect(renderer,&boss->destRect);
+  }
 	
   // blast the boss->sprite frame to the renderer target
 	SDL_RenderCopyEx(
@@ -319,23 +333,146 @@ void renderBoss(SDL_Renderer* renderer,Game* game, Boss* boss) {
 }
 
 int getPlayerCollision(Game* game, Player* player) {
-  // FIXME: need better approach to handling collisions.
-  // seems to work fine for the top left corner of player, so look at
-  // adding offset checks from the origin of the player.
 
-  int tileX = (player->x) / TILE_WIDTH; //= 6
-  int tileY = (player->y) / TILE_HEIGHT; //= 3
-
+  int tileX1 = (player->x + SPRITE_WIDTH * 0.25) / TILE_WIDTH;
+  int tileX2 = (player->x + SPRITE_WIDTH * 0.75) / TILE_WIDTH;
+  int tileY1 = (player->y) / TILE_HEIGHT;
+  int tileY2 = (player->y + SPRITE_HEIGHT) / TILE_HEIGHT;
   // player tile i = tile x + tile y * map width
-  int currTileIndex =  tileX + tileY * MAP_W;
-  // printf("currTileIndex: %u \n", currTileIndex);
-  printf("tileX: %u tileY: %u\n", tileX, tileY);
-  printf("tileX * tileY: %u\n", currTileIndex);
-  printf("gameMapArr[%u]: %u \n", currTileIndex, gameMapArr[currTileIndex]);
-  fflush(stdout);
+  int currTileIndex1 =  tileX1 + tileY1 * MAP_W;
+  int currTileIndex2 =  tileX1 + tileY2 * MAP_W;
+  int currTileIndex3 =  tileX2 + tileY1 * MAP_W;
+  int currTileIndex4 =  tileX2 + tileY2 * MAP_W;
 
+  // TODO: these object collision only work for detecting the play
 
-  return gameMapArr[currTileIndex];
+  if (player->x + SPRITE_WIDTH >= game->maleOne->x && player->x <= game->maleOne->x + SPRITE_WIDTH) {
+    if (player->y + SPRITE_HEIGHT >= game->maleOne->y && player->y <= game->maleOne->y + SPRITE_HEIGHT) {
+      // printf("hit maleOne\n");
+      // fflush(stdout);
+      game->maleOne->isEnabled = 1;
+      // game->maleOne->isEnabled = 0;
+      game->femaleOne->isEnabled = 0;
+      game->femaleTwo->isEnabled = 0;
+      game->firstBoss->isEnabled = 0;
+      game->copier->isEnabled = 0;
+      game->waterCooler->isEnabled = 0;
+      game->computer->isEnabled = 0;
+      game->finalBoss->isEnabled = 0;
+    }
+  } 
+  if (player->x + SPRITE_WIDTH >= game->femaleOne->x && player->x <= game->femaleOne->x + SPRITE_WIDTH) {
+    if (player->y + SPRITE_HEIGHT >= game->femaleOne->y && player->y <= game->femaleOne->y + SPRITE_HEIGHT) {
+      // printf("hit femaleOne\n");
+      // fflush(stdout);
+      game->femaleOne->isEnabled = 1;
+      game->maleOne->isEnabled = 0;
+      // game->femaleOne->isEnabled = 0;
+      game->femaleTwo->isEnabled = 0;
+      game->firstBoss->isEnabled = 0;
+      game->copier->isEnabled = 0;
+      game->waterCooler->isEnabled = 0;
+      game->computer->isEnabled = 0;
+      game->finalBoss->isEnabled = 0;    
+    }
+  } 
+  if (player->x + SPRITE_WIDTH >= game->femaleTwo->x && player->x <= game->femaleTwo->x + SPRITE_WIDTH) {
+    if (player->y + SPRITE_HEIGHT >= game->femaleTwo->y && player->y <= game->femaleTwo->y + SPRITE_HEIGHT) {
+      // printf("hit femaleTwo\n");
+      // fflush(stdout);
+      game->femaleTwo->isEnabled = 1;
+      game->maleOne->isEnabled = 0;
+      game->femaleOne->isEnabled = 0;
+      // game->femaleTwo->isEnabled = 0;
+      game->firstBoss->isEnabled = 0;
+      game->copier->isEnabled = 0;
+      game->waterCooler->isEnabled = 0;
+      game->computer->isEnabled = 0;
+      game->finalBoss->isEnabled = 0;   
+    }
+  } 
+  if (player->x + SPRITE_WIDTH >= game->firstBoss->x && player->x <= game->firstBoss->x + SPRITE_WIDTH) {
+    if (player->y + SPRITE_HEIGHT >= game->firstBoss->y && player->y <= game->firstBoss->y + SPRITE_HEIGHT) {
+      // printf("hit firstBoss\n");
+      // fflush(stdout);
+      game->firstBoss->isEnabled = 1;
+      game->maleOne->isEnabled = 0;
+      game->femaleOne->isEnabled = 0;
+      game->femaleTwo->isEnabled = 0;
+      // game->firstBoss->isEnabled = 0;
+      game->copier->isEnabled = 0;
+      game->waterCooler->isEnabled = 0;
+      game->computer->isEnabled = 0;
+      game->finalBoss->isEnabled = 0;    
+    }
+  }
+  if (player->x + SPRITE_WIDTH >= game->copier->x && player->x <= game->copier->x + COPIER_WIDTH) {
+    if (player->y + SPRITE_HEIGHT >= game->copier->y && player->y <= game->copier->y + COPIER_HEIGHT) {
+      // printf("hit copier\n");
+      // fflush(stdout);
+      game->copier->isEnabled = 1;
+      game->maleOne->isEnabled = 0;
+      game->femaleOne->isEnabled = 0;
+      game->femaleTwo->isEnabled = 0;
+      game->firstBoss->isEnabled = 0;
+      // game->copier->isEnabled = 0;
+      game->waterCooler->isEnabled = 0;
+      game->computer->isEnabled = 0;
+      game->finalBoss->isEnabled = 0;
+    }
+  } 
+  if (player->x + SPRITE_WIDTH >= game->waterCooler->x && player->x <= game->waterCooler->x + WATERCOOLER_WIDTH) {
+    if (player->y + SPRITE_HEIGHT >= game->waterCooler->y && player->y <= game->waterCooler->y + WATERCOOLER_HEIGHT) {
+      // printf("hit waterCooler\n");
+      // fflush(stdout);
+      game->waterCooler->isEnabled = 1;
+      game->maleOne->isEnabled = 0;
+      game->femaleOne->isEnabled = 0;
+      game->femaleTwo->isEnabled = 0;
+      game->firstBoss->isEnabled = 0;
+      game->copier->isEnabled = 0;
+      // game->waterCooler->isEnabled = 0;
+      game->computer->isEnabled = 0;
+      game->finalBoss->isEnabled = 0;
+    }
+  } 
+  if (player->x + SPRITE_WIDTH >= game->computer->x && player->x <= game->computer->x + COMPUTER_WIDTH) {
+    if (player->y + SPRITE_HEIGHT >= game->computer->y && player->y <= game->computer->y + COMPUTER_HEIGHT) {
+      // printf("hit computer\n");
+      // fflush(stdout);
+      game->computer->isEnabled = 1;
+      game->maleOne->isEnabled = 0;
+      game->femaleOne->isEnabled = 0;
+      game->femaleTwo->isEnabled = 0;
+      game->firstBoss->isEnabled = 0;
+      game->copier->isEnabled = 0;
+      game->waterCooler->isEnabled = 0;
+      // game->computer->isEnabled = 0;
+      game->finalBoss->isEnabled = 0;
+    }
+  } 
+  if (player->x + SPRITE_WIDTH >= game->finalBoss->x && player->x <= game->finalBoss->x + SPRITE_WIDTH) {
+    if (player->y + SPRITE_HEIGHT >= game->finalBoss->y && player->y <= game->finalBoss->y + SPRITE_HEIGHT) {
+      // printf("hit finalBoss\n");
+      // fflush(stdout);
+      game->finalBoss->isEnabled = 1;
+      game->maleOne->isEnabled = 0;
+      game->femaleOne->isEnabled = 0;
+      game->femaleTwo->isEnabled = 0;
+      game->firstBoss->isEnabled = 0;
+      game->copier->isEnabled = 0;
+      game->waterCooler->isEnabled = 0;
+      game->computer->isEnabled = 0;
+      // game->finalBoss->isEnabled = 0;
+    }
+  } 
+
+  // TODO: if time, improve this collision detection. good enough for now
+  if (gameMapArr[currTileIndex1] || gameMapArr[currTileIndex2] || gameMapArr[currTileIndex3] || gameMapArr[currTileIndex4]) {
+    return 1;
+  }
+
+  return 0 ;
 }
 
 void updatePlayScene(SDL_Renderer* renderer,Game* game, float dt) {
@@ -348,12 +485,21 @@ void updatePlayScene(SDL_Renderer* renderer,Game* game, float dt) {
   // updateSprite(game->maleOne->sprite, dt);
 
   if (game->gameInput->isKeyDown && game->gameInput->whichKey) {
+    game->femaleOne->isEnabled = 0;
+    game->maleOne->isEnabled = 0;
+    game->femaleTwo->isEnabled = 0;
+    game->firstBoss->isEnabled = 0;
+    game->copier->isEnabled = 0;
+    game->waterCooler->isEnabled = 0;
+    game->computer->isEnabled = 0;
+    game->finalBoss->isEnabled = 0;   
     switch(game->gameInput->whichKey) {
       case SDL_SCANCODE_RIGHT: {
         game->player->sprite->animation = 9;
-        game->player->x += dt / 10;
+        game->player->x += 2; 
+
         if (getPlayerCollision(game, game->player)) {
-          // game->player->x -= dt / 10;
+          game->player->x -= 2;
           // printf("hit something \n");
           // fflush(stdout);
         }
@@ -361,9 +507,9 @@ void updatePlayScene(SDL_Renderer* renderer,Game* game, float dt) {
       }
       case SDL_SCANCODE_LEFT: {
         game->player->sprite->animation = 11;        
-        game->player->x -= dt / 20;
+        game->player->x -= 2;
         if (getPlayerCollision(game, game->player)) {
-          // game->player->x += dt / 20;
+          game->player->x += 2;
           
           // printf("hit something \n");
           // fflush(stdout);
@@ -372,9 +518,9 @@ void updatePlayScene(SDL_Renderer* renderer,Game* game, float dt) {
       }
       case SDL_SCANCODE_UP: {
         game->player->sprite->animation = 8;        
-        game->player->y -= dt / 20;
+        game->player->y -= 2;
         if (getPlayerCollision(game, game->player)) {
-          // game->player->y += dt / 20;
+          game->player->y += 2;
           // printf("hit something \n");
           // fflush(stdout);
         }
@@ -382,9 +528,9 @@ void updatePlayScene(SDL_Renderer* renderer,Game* game, float dt) {
       }
       case SDL_SCANCODE_DOWN: {
         game->player->sprite->animation = 10;        
-        game->player->y += dt / 11;
+        game->player->y += 2;
         if (getPlayerCollision(game, game->player)) {
-          // game->player->y -= dt / 11;
+          game->player->y -= 2;
           // printf("hit something \n");
           // fflush(stdout);
         }
@@ -460,6 +606,55 @@ void handleWhichKey(Game* game, SDL_Keysym *keysym) {
   }
 }
 
+void handleMouseDown(Game* game) {
+  if (!game->gameInput->isMouseDown) {
+    return;
+  }
+
+  if (game->computer->isEnabled) {
+    printf("add +1 to generated reports\n");
+    fflush(stdout);
+    return;
+  }
+
+  if (game->femaleOne->isEnabled) {
+    printf("add +1 to time score: femaleOne Conversation\n");
+    fflush(stdout);
+    return;
+  }
+  if (game->femaleTwo->isEnabled) {
+    printf("add +1 to time score: femaleTwo Conversation\n");
+    fflush(stdout);
+    return;
+  }
+  if (game->maleOne->isEnabled) {
+    printf("add +1 to time score: maleOne Conversation\n");
+    fflush(stdout);
+    return;
+  }
+  if (game->copier->isEnabled) {
+    printf("add +1 to report ammo\n");
+    fflush(stdout);
+    return;
+  }
+  if (game->waterCooler->isEnabled) {
+    printf("add +20 to health\n");
+    fflush(stdout);
+    return;
+  }
+  if (game->firstBoss->isEnabled) {
+    printf("enter first boss fight scene - win and beat level\n");
+    fflush(stdout);
+    return;
+  }
+  if (game->finalBoss->isEnabled) {
+    printf("enter final boss fight scene - win and beat game\n");
+    fflush(stdout);
+    return;
+  }
+
+}
+
 // function definitions
 void handleInput(Game* game, int *loop) {
   SDL_Event event;
@@ -490,12 +685,13 @@ void handleInput(Game* game, int *loop) {
       }
       case SDL_MOUSEBUTTONDOWN: {
         // printf("mouseDown!\n");
-        game->gameInput->isMouseDown = 1;                
+        game->gameInput->isMouseDown = 1;    
+        handleMouseDown(game);                        
         break;
       }
       case SDL_MOUSEBUTTONUP: {
         // printf("mouseUp!\n");
-        game->gameInput->isMouseDown = 0;                
+        game->gameInput->isMouseDown = 0;    
         break;
       }
       case SDL_MOUSEMOTION: {
@@ -658,6 +854,7 @@ Boss* newBoss(SDL_Renderer* renderer, char* filename) {
   boss->status = 1;
   boss->texture = texture;
   boss->sprite = newSprite();
+  boss->isEnabled = 0;
 
   return boss;
 }
@@ -698,6 +895,7 @@ NPC* newNPC(SDL_Renderer* renderer, char* filename) {
   npc->y = 0;
   npc->texture = texture;
   npc->sprite = newSprite();
+  npc->isEnabled = 0;
 
   return npc;
 }
@@ -738,6 +936,7 @@ Item* newItem(SDL_Renderer* renderer, char* itemName, char* filename, int width,
   item->x = 0;
   item->y = 0;
   item->texture = texture;
+  item->isEnabled = 0;
 
   return item;
 }
@@ -908,21 +1107,21 @@ void loadPlayScene(SDL_Renderer* renderer,Game* game) {
 
   // set initial NPC, bosses, and player positions
   game->maleOne->x = 300;
-  game->maleOne->y = 300;
+  game->maleOne->y = 330;
 
   game->femaleOne->x = 200;
-  game->femaleOne->y = 300;
+  game->femaleOne->y = 320;
 
   game->femaleTwo->x = 540;
   game->femaleTwo->y = 60;
 
   game->firstBoss->x = 100;
-  game->firstBoss->y = 400;
+  game->firstBoss->y = 370;
 
-  game->finalBoss->x = 300;
-  game->finalBoss->y = 250;
+  game->finalBoss->x = 200;
+  game->finalBoss->y = 220;
 
-  game->player->x = 100;
+  game->player->x = 75;
   game->player->y = 250;
 
   // set item positions
@@ -985,18 +1184,12 @@ void renderMapTile(SDL_Renderer *renderer, Game* game, SDL_Texture* texture, SDL
 }
 
 void renderItem(SDL_Renderer *renderer, Game* game, Item* item) {
-  SDL_Rect itemSrcRect;
-  itemSrcRect.x = 0;
-  itemSrcRect.y = 0;
-  itemSrcRect.w = item->srcRect.w;
-  itemSrcRect.h = item->srcRect.h;
-
-  SDL_Rect itemDestRect;
-  itemDestRect.x = item->x;
-  itemDestRect.y = item->y;
-  itemDestRect.w = item->destRect.w;
-  itemDestRect.h = item->destRect.w;
-  SDL_RenderCopyEx(renderer, item->texture, &itemSrcRect, &itemDestRect, 0, NULL, SDL_FLIP_NONE); 
+  item->destRect.x = item->x;
+  item->destRect.y = item->y;
+  if (item->isEnabled) {
+    SDL_RenderFillRect(renderer,&item->destRect);
+  }
+  SDL_RenderCopyEx(renderer, item->texture, &item->srcRect, &item->destRect, 0, NULL, SDL_FLIP_NONE); 
 }
 
 void renderPlayScene(SDL_Renderer *renderer, Game* game) {
