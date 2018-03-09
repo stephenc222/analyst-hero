@@ -1160,8 +1160,7 @@ void bossAttack(SDL_Renderer* renderer,Game* game) {
           printf("boss partial hit attack!\n");
           fflush(stdout);
           game->currentScene[2].text = "boss uses 'Questions Integrity' - partial hit!";
-          // game->player->health -= 10;
-          game->player->health -= 80;
+          game->player->health -= 10;
           if (game->player->health <= 0) {
             printf("game over");
             fflush(stdout);
@@ -1177,8 +1176,7 @@ void bossAttack(SDL_Renderer* renderer,Game* game) {
           printf("boss direct hit!\n");
           fflush(stdout);
           game->currentScene[2].text = "boss uses 'Questions Integrity' - direct hit!";
-          // game->player->health -= 20;
-          game->player->health -= 80;
+          game->player->health -= 20;
           if (game->player->health <= 0) {
             printf("game over");
             fflush(stdout);
@@ -1213,8 +1211,7 @@ void bossAttack(SDL_Renderer* renderer,Game* game) {
           printf("boss partial hit attack!\n");
           fflush(stdout);
           game->currentScene[2].text = "boss uses: 'Bad Joke' - partial hit!";
-          // game->player->health -= 10;
-          game->player->health -= 80;
+          game->player->health -= 10;
           if (game->player->health <= 0) {
             printf("-game over-\n");
             fflush(stdout);
