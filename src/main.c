@@ -624,7 +624,7 @@ void renderPlayer(SDL_Renderer* renderer,Game* game, Player* player) {
 	player->destRect.y = (int)player->y;
 
 	// TODO: remove this, this is for helping with collision detection
-  SDL_RenderDrawRect(renderer,&player->destRect);
+  // SDL_RenderDrawRect(renderer,&player->destRect);
   // blast the player->sprite frame to the renderer target
 	SDL_RenderCopyEx(
 	  renderer,
