@@ -35,6 +35,9 @@ int updateBossHealthText = 0;
 int updateTimeScoreText = 0;
 int updateReportEffText = 0;
 int updateReportAmmoText = 0;
+int updateFightSceneActionText = 0;
+int playerAttackChoice = -1;
+int gameLevel = 0;
 
 unsigned char gameMapArr[MAP_W * MAP_H] = {
   1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
@@ -103,6 +106,7 @@ typedef struct {
   int status; // TODO: enum values for different statuses
   int timeScore;
   int reportEff;
+  int hasAttacked;
   SDL_Texture* texture;  
   SDL_Rect srcRect;
   SDL_Rect destRect;
@@ -218,6 +222,7 @@ void update(SDL_Renderer* renderer,Game* game, float dt);
 
 void updateTitleScene(SDL_Renderer* renderer, Game* game, float dt);
 void updateTextRect(SDL_Renderer* renderer, TextRect* textRect, int nextVal, SDL_Color color);
+void updateFightSceneStatusText (SDL_Renderer *renderer, TextRect* textRect, char* newText, SDL_Color color);
 void updatePlayScene(SDL_Renderer* renderer, Game* game, float dt);
 void updateFightScene(SDL_Renderer* renderer, Game* game, float dt);
 void updateSprite(Sprite* sprite, float dt);
@@ -249,9 +254,11 @@ void renderGameMenu(SDL_Renderer *renderer, Game* game);
 void handleWhichKey(Game* game, SDL_Keysym *keysym);
 void handleMouseDown(SDL_Renderer* renderer,Game* game);
 void handleMouseMove(SDL_Renderer* renderer,Game* game);
+void playerAttack(Game* game, int playerAttackChoice, int gameLevel);
+void bossAttack(Game* game);
 
 void renderGameMenu(SDL_Renderer *renderer, Game* game) {
-  SDL_SetRenderDrawColor(renderer, 178, 232, 255, 255);
+  SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
 
   SDL_Rect rect;
   rect.x = game->gameMenu->menuChoice1->rect.x;
@@ -259,6 +266,7 @@ void renderGameMenu(SDL_Renderer *renderer, Game* game) {
   rect.w = game->gameMenu->menuChoice2->rect.w;
   rect.h = game->gameMenu->menuChoice1->rect.h + game->gameMenu->menuChoice2->rect.h;
   SDL_RenderDrawRect(renderer, &rect);
+  SDL_SetRenderDrawColor(renderer, 178, 232, 255, 255);
   if ( game->gameMenu->whichMenuChoice == 0) {
     SDL_Rect rect1;
     rect1.x = game->gameMenu->menuChoice1->rect.x;
@@ -266,8 +274,13 @@ void renderGameMenu(SDL_Renderer *renderer, Game* game) {
     rect1.w = game->gameMenu->menuChoice2->rect.w;
     rect1.h = game->gameMenu->menuChoice1->rect.h;
     SDL_RenderFillRect(renderer,&rect1);
+    SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
+    SDL_RenderDrawRect(renderer, &rect);
+
   } else if (game->gameMenu->whichMenuChoice == 1) {
     SDL_RenderFillRect(renderer,&game->gameMenu->menuChoice2->rect);
+    SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
+    SDL_RenderDrawRect(renderer, &rect);
   }
   renderText(
     renderer, 
@@ -331,7 +344,7 @@ GameMenu* newGameMenu(SDL_Renderer* renderer,Game* game,int isActive, int whichM
       renderer,
       game->player->x + 340,
       game->player->y + 150,
-      100,
+      160,
       50,
       80,
       "../assets/OpenSans-Bold.ttf",
@@ -343,7 +356,7 @@ GameMenu* newGameMenu(SDL_Renderer* renderer,Game* game,int isActive, int whichM
       renderer,
       game->player->x + 340,
       game->player->y + 195,
-      100,
+      190,
       50,
       80,
       "../assets/OpenSans-Bold.ttf",
@@ -374,14 +387,40 @@ void destroyGameMenu(GameMenu* gameMenu) {
 void updateFightScene(SDL_Renderer* renderer, Game* game, float dt) {
   // TODO: connect battle menu choices to affect player and boss health
   handleMouseMove(renderer, game);
+
+  if (game->player->hasAttacked) {
+    // slight delay before boss attack
+    game->fightDelay -= dt;
+    if (game->fightDelay <= 0) {
+      game->fightDelay = 700;
+      // boss attack
+      bossAttack(game);
+    }
+  }
+
   if (updatePlayerHealthText == 0) {
     updateTextRect(renderer, &game->currentScene[0],game->player->health, BLACK);
     updatePlayerHealthText = 1;
   }
+
+  if (updateFightSceneActionText == 0) {
+    updateFightSceneStatusText(renderer, &game->currentScene[2],game->currentScene[2].text, BLACK);
+    updateFightSceneActionText = 1;
+  }
+
   // make this adapt to either final boss or first boss - same goes for loadFightScene
-  if (updateBossHealthText == 0) {
-    updateTextRect(renderer, &game->currentScene[1],game->firstBoss->health, BLACK);
-    updateBossHealthText = 1;
+  if (gameLevel == 0) {
+    // handle first boss health text here
+    if (updateBossHealthText == 0) {
+      updateTextRect(renderer, &game->currentScene[1],game->firstBoss->health, BLACK);
+      updateBossHealthText = 1;
+    }
+  // TODO: adapt for more bosses... ?
+  } else if (gameLevel == 1) {
+    if (updateBossHealthText == 0) {
+      updateTextRect(renderer, &game->currentScene[1],game->finalBoss->health, BLACK);
+      updateBossHealthText = 1;
+    }
   }
 
 }
@@ -918,7 +957,7 @@ void handleMouseDown(SDL_Renderer* renderer,Game* game) {
     return;
   }
   if (game->finalBoss->isEnabled) {
-    if (game->player->timeScore == 8 && game->firstBoss->health == 0) {
+    if (game->player->timeScore == 8 && game->finalBoss->health >= 0) {
       printf("enter final boss fight scene - win and beat game\n");
       fflush(stdout);
       // TODO:  load final boss fight scene here
@@ -933,22 +972,316 @@ void handleMouseDown(SDL_Renderer* renderer,Game* game) {
   }
 
   // TODO: here - where fight scene actions can occur
-  if (game->gameMenu) {
+  if (game->gameMenu && game->gameMenu->whichMenu == 1) {
     if (game->gameMenu->whichMenuChoice == 0) {
       // TODO: minus boss health by 20 X reportEff multiplier
-      printf("report attack - attack!\n");
-      fflush(stdout);
+      if (!game->player->hasAttacked) {
+        playerAttack(game, 0, gameLevel);
+      }
       return;
     }
     if (game->gameMenu->whichMenuChoice == 1) {
       // TODO: stun boss, causing him/her to not attack the next turn, and for their attacks
       // to be %15 less harmful
-      printf("tactical BS attack!\n");
-      fflush(stdout);
+      if (!game->player->hasAttacked) {
+        playerAttack(game, 1, gameLevel);
+      }
       return;
     }
   }
 
+}
+
+void bossAttack(Game* game) {
+  // bossAttackHitChance: 0 = miss, 1 = partial hit, 2 = hit
+  // bossAttackChoice: 0 = "Questions Integrity", 1 = "Bad Joke", 2 = "Found Report Problem"
+  int bossAttackHitChance = rand() % (0 + 2 - 0) + 0;
+  int bossAttackChoice = rand() % (2 + 1 - 0) + 0;
+  switch(bossAttackChoice) {
+    case 0: {
+      // player missed
+      printf("boss uses 'Questions Integrity'\n");
+      fflush(stdout);
+      switch(bossAttackHitChance) {
+        case 0: {
+          // player missed
+          printf("boss missed!\n");
+          fflush(stdout);
+          game->currentScene[2].text = "boss uses 'Questions Integrity' - missed Attack!";
+          updateFightSceneActionText = 0;
+          break;
+        }
+        case 1: {
+          // player attack partial hit
+          printf("boss partial hit attack!\n");
+          fflush(stdout);
+          game->currentScene[2].text = "boss uses 'Questions Integrity' - partial hit!";
+          game->player->health -= 10;
+          if (game->player->health <= 0) {
+            printf("game over");
+            fflush(stdout);
+          }
+          updatePlayerHealthText = 0;
+          updateFightSceneActionText = 0;
+          break;
+        }
+        case 2: {
+          // player hit
+          printf("boss direct hit!\n");
+          fflush(stdout);
+          game->currentScene[2].text = "boss uses 'Questions Integrity' - direct hit!";
+          game->player->health -= 20;
+          if (game->player->health <= 0) {
+            printf("game over");
+            fflush(stdout);
+          }
+          updatePlayerHealthText = 0;
+          updateFightSceneActionText = 0;
+          break;
+        }
+        default: {
+          break;
+        }
+      }
+      break;
+    }
+    case 1: {
+      // boss attack - bad joke
+      printf("boss uses 'Bad Joke'\n");
+      fflush(stdout);
+      switch(bossAttackHitChance) {
+        case 0: {
+          // boss missed
+          printf("boss missed!\n");
+          fflush(stdout);
+          game->currentScene[2].text = "boss uses: 'Bad Joke' - missed!";
+          updateFightSceneActionText = 0;
+          break;
+        }
+        case 1: {
+          // player attack partial hit
+          printf("boss partial hit attack!\n");
+          fflush(stdout);
+          game->currentScene[2].text = "boss uses: 'Bad Joke' - partial hit!";
+          game->player->health -= 10;
+          if (game->player->health <= 0) {
+            printf("-game over-\n");
+            fflush(stdout);
+          }
+          updatePlayerHealthText = 0;
+          updateFightSceneActionText = 0;
+          break;
+        }
+        case 2: {
+          // player hit
+          printf("boss direct hit!\n");
+          fflush(stdout);
+          game->currentScene[2].text = "boss uses: 'Bad Joke' - direct hit!";
+          game->player->health -= 20;
+          if (game->player->health <= 0) {
+            printf("-game over-\n");
+            fflush(stdout);
+          }
+          updatePlayerHealthText = 0;
+          updateFightSceneActionText = 0;
+          break;
+        }
+        default: {
+          break;
+        }
+      }
+      break;
+    }
+    case 2: {
+      // player hit
+      printf("boss uses 'Found Report Problem'\n");
+      fflush(stdout);
+      switch(bossAttackHitChance) {
+        case 0: {
+          // player missed
+          game->currentScene[2].text = "boss uses: 'Found Report Problem' - missed!";
+          updatePlayerHealthText = 0;
+          updateFightSceneActionText = 0;
+          break;
+        }
+        case 1: {
+          // player attack partial hit
+          game->currentScene[2].text = "boss uses: 'Found Report Problem' - partial hit!";
+          game->player->health -= 10;
+          if (game->player->health <= 0) {
+            // enter game over scene
+            printf("game over \n");
+            fflush(stdout);
+          }
+          updatePlayerHealthText = 0;
+          updateFightSceneActionText = 0;
+          break;
+        }
+        case 2: {
+          // player hit
+          game->currentScene[2].text = "boss uses: 'Found Report Problem' - direct hit!";
+          game->player->health -= 20;
+          if (game->player->health <= 0) {
+            // enter game over scene
+            printf("game over \n");
+            fflush(stdout);
+          }
+          updatePlayerHealthText = 0;
+          updateFightSceneActionText = 0;
+          break;
+        }
+        default: {
+          break;
+        }
+      }
+      break;
+    }
+    default: {
+      break;
+    }
+  }
+  game->player->hasAttacked = 0;
+}
+
+void playerAttack(Game* game, int playerAttackChoice, int gameLevel) {
+  // playerAttackChoice: 0 = report attack, 1 = tactical BS
+  // playerAttackHitChance: 0 = miss, 1 = partial hit (50% damage), 2 = hit
+
+  int playerAttackHitChance = rand() % (2 + 1 - 0) + 0;
+
+  switch(playerAttackChoice) {
+    case 0: {
+      // player missed
+      printf("report attack - attack!\n");
+      fflush(stdout);
+      switch(playerAttackHitChance) {
+        case 0: {
+          // player missed
+          game->currentScene[2].text = "You use: 'Report Attack' - missed!";
+          updateFightSceneActionText = 0;
+          break;
+        }
+        case 1: {
+          // player attack partial hit
+          game->currentScene[2].text = "You use: 'Report Attack' - partial hit!";
+          updateFightSceneActionText = 0;
+          if (gameLevel == 0) {
+            game->firstBoss->health -= 15;
+            if (game->firstBoss->health <= 0) {
+              // enter next level scene
+              printf("next level \n");
+              fflush(stdout);
+              gameLevel = 1;
+            }
+          } else if (gameLevel == 1) {
+            game->finalBoss->health -= 15;
+            if (game->finalBoss->health <= 0) {
+              // enter game win screen
+              printf("game won \n");
+              fflush(stdout);
+            }
+          }
+          updateBossHealthText = 0;
+          break;
+        }
+        case 2: {
+          // player hit
+          game->currentScene[2].text = "You use: 'Report Attack' - direct hit!";
+          updateFightSceneActionText = 0;
+          if (gameLevel == 0) {
+            game->firstBoss->health -= 30;
+            if (game->firstBoss->health <= 0) {
+              // enter next level scene
+              printf("next level \n");
+              fflush(stdout);
+              gameLevel = 1;
+            }
+          } else if (gameLevel == 1) {
+            game->finalBoss->health -= 30;
+            if (game->finalBoss->health <= 0) {
+              // enter game win screen
+              printf("game won \n");
+              fflush(stdout);
+            }
+          }
+          updateBossHealthText = 0;          
+          break;
+        }
+        default: {
+          break;
+        }
+      }
+      break;
+    }
+    case 1: {
+      // player attack partial hit
+      printf("tactical BS attack!\n");
+      fflush(stdout);
+      switch(playerAttackHitChance) {
+        case 0: {
+          // player missed
+          game->currentScene[2].text = "You use: 'Tactical BS' - missed!";
+          updateFightSceneActionText = 0;
+          
+          break;
+        }
+        case 1: {
+          // player attack partial hit
+          game->currentScene[2].text = "You use: 'Tactical BS' - partial hit!";
+          updateFightSceneActionText = 0;
+          if (gameLevel == 0) {
+            game->firstBoss->health -= 10;
+            if (game->firstBoss->health <= 0) {
+              // enter next level scene
+              printf("next level \n");
+              fflush(stdout);
+              gameLevel = 1;
+            }
+          } else if (gameLevel == 1) {
+            game->finalBoss->health -= 10;
+            if (game->finalBoss->health <= 0) {
+              // enter game win screen
+              printf("game won \n");
+              fflush(stdout);
+            }
+          }
+          updateBossHealthText = 0;          
+          break;
+        }
+        case 2: {
+          // player hit
+          game->currentScene[2].text = "You use: 'Tactical BS' - direct hit!";
+          updateFightSceneActionText = 0;
+          if (gameLevel == 0) {
+            game->firstBoss->health -= 20;
+            if (game->firstBoss->health <= 0) {
+              // enter next level scene
+              printf("next level \n");
+              fflush(stdout);
+              gameLevel = 1;
+            }
+          } else if (gameLevel == 1) {
+            game->finalBoss->health -= 20;
+            if (game->finalBoss->health <= 0) {
+              // enter game win screen
+              printf("game won \n");
+              fflush(stdout);
+            }
+          }
+          updateBossHealthText = 0;          
+          break;
+        }
+        default: {
+          break;
+        }
+      }
+      break;
+    }
+    default: {
+      break;
+    }
+  }
+  game->player->hasAttacked = 1;
 }
 
 // function definitions
@@ -1110,6 +1443,7 @@ Player* newPlayer(SDL_Renderer* renderer) {
   player->health = 100;
   player->timeScore = 0;
   player->reportEff = 1;
+  player->hasAttacked = 0;
   player->status = 1;
   player->texture = texture;
   player->sprite = newSprite();
@@ -1311,6 +1645,18 @@ TextRect* newTextRect(SDL_Renderer *renderer,int x, int y, int w, int h, int fon
   textRect->text = text;
   textRect->isShown = isShown;
   return textRect;
+}
+
+void updateFightSceneStatusText (SDL_Renderer *renderer, TextRect* textRect, char* newText, SDL_Color color) {
+  if (textRect->texture) {
+    SDL_DestroyTexture(textRect->texture);
+  }
+  SDL_Surface* surface = TTF_RenderText_Solid(textRect->font, newText, color);
+
+  SDL_Texture* texture = SDL_CreateTextureFromSurface(renderer, surface);
+  SDL_FreeSurface(surface);
+  
+  textRect->texture = texture;
 }
 
 void updateTextRect (SDL_Renderer* renderer, TextRect* textRect, int nextVal, SDL_Color color) {
@@ -1575,11 +1921,11 @@ void loadFightScene(SDL_Renderer* renderer, Game* game) {
   );
   TextRect* fightActionUpdateText = newTextRect(
     renderer,
-    CENTER_WIDTH - 100,
+    CENTER_WIDTH - 150,
     CENTER_HEIGHT - 30,
-    150,
-    25, 
-    40,
+    380,
+    60, 
+    35,
     "../assets/OpenSans-Bold.ttf",
     "-Begin Fight-",
     SHOW_TEXT,
@@ -1732,7 +2078,7 @@ Game* newGame(SDL_Renderer* renderer) {
   game->maleOne = newNPC(renderer, "../assets/male_1.png");
   game->femaleOne = newNPC(renderer, "../assets/female_1.png");
   game->femaleTwo = newNPC(renderer, "../assets/female_2.png");
-  game->fightDelay = 100;
+  game->fightDelay = 700;
   game->currentScene = 0;
   game->renderFunc = 0;
   game->updateFunc = 0;
