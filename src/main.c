@@ -38,6 +38,7 @@ int updateReportAmmoText = 0;
 int updateFightSceneActionText = 0;
 int playerAttackChoice = -1;
 int gameLevel = 0;
+int startOver = 0;
 
 unsigned char gameMapArr[MAP_W * MAP_H] = {
   1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
@@ -221,18 +222,19 @@ void handleInput(SDL_Renderer* renderer,Game* game, int *loop);
 void update(SDL_Renderer* renderer,Game* game, float dt);
 
 void updateTitleScene(SDL_Renderer* renderer, Game* game, float dt);
+void updateNextLevelScene(SDL_Renderer* renderer, Game* game, float dt);
 void updateTextRect(SDL_Renderer* renderer, TextRect* textRect, int nextVal, SDL_Color color);
 void updateFightSceneStatusText (SDL_Renderer *renderer, TextRect* textRect, char* newText, SDL_Color color);
 void updatePlayScene(SDL_Renderer* renderer, Game* game, float dt);
 void updateFightScene(SDL_Renderer* renderer, Game* game, float dt);
 void updateSprite(Sprite* sprite, float dt);
 void updateGameoverScene(SDL_Renderer* renderer, Game* game, float dt);
-void updateGameoverScene(SDL_Renderer* renderer, Game* game, float dt);
 void updateGameWinScene(SDL_Renderer* renderer, Game* game, float dt);
 
 void loadTitleScene(SDL_Renderer* renderer, Game* game);
 void loadPlayScene(SDL_Renderer* renderer, Game* game);
 void loadFightScene(SDL_Renderer* renderer,Game* game);
+void loadNextLevelScene(SDL_Renderer* renderer,Game* game);
 void loadGameoverScene(SDL_Renderer* renderer, Game* game);
 void loadGameWinScene(SDL_Renderer* renderer,Game* game);
 
@@ -250,11 +252,13 @@ void renderScene(SDL_Renderer *renderer,Game* game);
 void renderPlayScene(SDL_Renderer *renderer, Game* game);
 void renderFightScene(SDL_Renderer *renderer, Game* game);
 void renderTitleScene(SDL_Renderer *renderer, Game* game);
+void renderNextLevelScene(SDL_Renderer *renderer, Game* game);
+void renderGameWinScene(SDL_Renderer *renderer, Game* game);
 void renderGameMenu(SDL_Renderer *renderer, Game* game);
 void handleWhichKey(Game* game, SDL_Keysym *keysym);
 void handleMouseDown(SDL_Renderer* renderer,Game* game);
 void handleMouseMove(SDL_Renderer* renderer,Game* game);
-void playerAttack(Game* game, int playerAttackChoice, int gameLevel);
+void playerAttack(SDL_Renderer* renderer, Game* game, int playerAttackChoice, int gameLevel);
 void bossAttack(Game* game);
 
 void renderGameMenu(SDL_Renderer *renderer, Game* game) {
@@ -426,7 +430,12 @@ void updateFightScene(SDL_Renderer* renderer, Game* game, float dt) {
 }
 
 void renderFightScene(SDL_Renderer *renderer, Game* game) {
-  renderBoss(renderer, game, game->firstBoss);
+
+  if (gameLevel == 0) {
+    renderBoss(renderer, game, game->firstBoss);
+  } else if (gameLevel == 1) {
+    renderBoss(renderer, game, game->finalBoss);
+  }
   renderPlayer(renderer, game, game->player);
 
   if (game->gameMenu->isActive) {
@@ -447,11 +456,116 @@ void renderFightScene(SDL_Renderer *renderer, Game* game) {
 }
 
 void updateTitleScene(SDL_Renderer* renderer,Game* game, float dt) {
+  // printf("UPDATE TITLE SCENE: %s\n", game->currentSceneName); 
+
+  if (startOver == 1) {
+    startOver = 0;
+    game->gameInput->whichKey = -1;
+    return;
+  } 
+
+  if (game->gameInput->whichKey == SDL_SCANCODE_RETURN) {
+
+    SDL_SetRenderDrawColor(renderer, 255, 105, 180, 255);
+    game->finalBoss->srcRect.w = SPRITE_WIDTH;
+    game->finalBoss->srcRect.h = SPRITE_HEIGHT;
+    game->finalBoss->destRect.w = SPRITE_WIDTH;
+    game->finalBoss->destRect.h = SPRITE_HEIGHT;
+    
+    game->firstBoss->srcRect.w = SPRITE_WIDTH;
+    game->firstBoss->srcRect.h = SPRITE_HEIGHT;
+    game->firstBoss->destRect.w = SPRITE_WIDTH;
+    game->firstBoss->destRect.h = SPRITE_HEIGHT;
+    loadPlayScene(renderer,game);
+  }
+}
+
+void updateNextLevelScene(SDL_Renderer* renderer,Game* game, float dt) {
   // printf("UPDATE TITLE SCENE: %s\n", game->currentSceneName);  
 
   if (game->gameInput->whichKey == SDL_SCANCODE_RETURN) {
+    game->player->timeScore = 0;
+    game->inventory->generatedReports = 0;
+    game->inventory->reportAmmo = 0;
+    game->player->reportEff += 1;
+    game->player->srcRect.w = SPRITE_WIDTH;
+    game->player->srcRect.h = SPRITE_HEIGHT;
+    game->player->destRect.w = SPRITE_WIDTH;
+    game->player->destRect.h = SPRITE_HEIGHT;
+
+    updatePlayerHealthText = 0;
+    updateReportAmmoText = 0;
+    updateTimeScoreText = 0;
+    updateReportEffText = 0;
+    updateBossHealthText = 0;
+    
     SDL_SetRenderDrawColor(renderer, 255, 105, 180, 255);
     loadPlayScene(renderer,game);
+  }
+}
+
+void updateGameWinScene(SDL_Renderer* renderer,Game* game, float dt) {
+  // printf("UPDATE TITLE SCENE: %s\n", game->currentSceneName);  
+
+  if (game->gameInput->whichKey == SDL_SCANCODE_RETURN) {
+    game->player->timeScore = 0;
+    game->inventory->generatedReports = 0;
+    game->inventory->reportAmmo = 0;
+    game->player->reportEff += 1;
+    game->player->srcRect.w = SPRITE_WIDTH;
+    game->player->srcRect.h = SPRITE_HEIGHT;
+    game->player->destRect.w = SPRITE_WIDTH;
+    game->player->destRect.h = SPRITE_HEIGHT;
+
+    game->finalBoss->srcRect.w = SPRITE_WIDTH;
+    game->finalBoss->srcRect.h = SPRITE_HEIGHT;
+    game->finalBoss->destRect.w = SPRITE_WIDTH;
+    game->finalBoss->destRect.h = SPRITE_HEIGHT;
+
+    game->firstBoss->health = 100;
+    game->finalBoss->health = 100;
+    game->player->health = 100;
+
+    updatePlayerHealthText = 0;
+    updateReportAmmoText = 0;
+    updateTimeScoreText = 0;
+    updateReportEffText = 0;
+    updateBossHealthText = 0;
+    game->firstBoss->sprite->animation = 11;
+    game->firstBoss->sprite->frame = 0;
+    game->finalBoss->sprite->animation = 11;
+    game->finalBoss->sprite->frame = 0;
+
+    SDL_SetRenderDrawColor(renderer, 255, 105, 180, 255);
+    gameLevel = 0;
+
+    startOver = 1;
+    loadTitleScene(renderer,game);
+    
+  }
+}
+
+void updateGameOverScene(SDL_Renderer* renderer,Game* game, float dt) {
+  // printf("UPDATE TITLE SCENE: %s\n", game->currentSceneName);  
+
+  if (game->gameInput->whichKey == SDL_SCANCODE_RETURN) {
+    game->player->timeScore = 0;
+    game->inventory->generatedReports = 0;
+    game->inventory->reportAmmo = 0;
+    game->player->reportEff += 1;
+    game->player->srcRect.w = SPRITE_WIDTH;
+    game->player->srcRect.h = SPRITE_HEIGHT;
+    game->player->destRect.w = SPRITE_WIDTH;
+    game->player->destRect.h = SPRITE_HEIGHT;
+
+    updatePlayerHealthText = 0;
+    updateReportAmmoText = 0;
+    updateTimeScoreText = 0;
+    updateReportEffText = 0;
+    updateBossHealthText = 0;
+    
+    SDL_SetRenderDrawColor(renderer, 255, 105, 180, 255);
+    loadTitleScene(renderer,game);
   }
 }
 
@@ -939,35 +1053,47 @@ void handleMouseDown(SDL_Renderer* renderer,Game* game) {
     return;
   }
   if (game->firstBoss->isEnabled) {
-    // TODO: put back this commented out if statement after done with fight scene dev
-    // if (game->player->timeScore == 8 && game->inventory->reportAmmo == 5) {
-    //   printf("enter first boss fight scene - win and beat level\n");
-    //   fflush(stdout);
-    //   // loadFightScene(renderer, game);
-    //   // TODO:  load first boss fight scene here
-    // } else if (game->player->timeScore != 8) {
-    //   printf("increase times score first before -firstBoss- !\n");
-    //   fflush(stdout);
-    // } else if (game->inventory->reportAmmo != 5) {
-    //   printf("increase report ammo first before -firstBoss- !\n");
-    //   fflush(stdout);   
-    // }
-    game->firstBoss->isEnabled = 0;
-    loadFightScene(renderer, game);
+    printf("time score: %d", game->player->timeScore);
+    printf("report Ammo: %d", game->inventory->reportAmmo);
+    if (game->player->timeScore == 8 && game->inventory->reportAmmo == 5) {
+      printf("enter first boss fight scene - win and beat level\n");
+      fflush(stdout);
+      game->firstBoss->isEnabled = 0;
+      loadFightScene(renderer, game);
+    } else if (game->player->timeScore != 8) {
+      printf("increase times score first before -firstBoss- !\n");
+      fflush(stdout);
+    } else if (game->inventory->reportAmmo != 5) {
+      printf("increase report ammo first before -firstBoss- !\n");
+      fflush(stdout);   
+    }
     return;
   }
   if (game->finalBoss->isEnabled) {
-    if (game->player->timeScore == 8 && game->finalBoss->health >= 0) {
+    printf("time score: %d\n", game->player->timeScore);
+    printf("report Ammo: %d\n", game->inventory->reportAmmo);
+    printf("first boss health: %d\n", game->firstBoss->health);
+    printf("game level: %d\n", gameLevel);
+    fflush(stdout);
+    
+
+    if (game->player->timeScore == 8 && game->firstBoss->health <= 0 && gameLevel == 1) {
       printf("enter final boss fight scene - win and beat game\n");
       fflush(stdout);
+      game->player->hasAttacked = 0;
+      game->finalBoss->isEnabled = 0;
+      gameLevel = 1;
+      loadFightScene(renderer, game);
       // TODO:  load final boss fight scene here
-    } else if (game->firstBoss->health != 0) {
+    } else if (game->firstBoss->health > 0) {
       printf("beat first boss before -finalboss- !\n");
       fflush(stdout);
     } else if (game->player->timeScore != 8 || game->inventory->reportAmmo != 5){
       printf("increase times score first or get more report ammo before -finalboss- !\n");
       fflush(stdout);
     }
+    printf("nothing?");
+    fflush(stdout);
     return;
   }
 
@@ -976,7 +1102,7 @@ void handleMouseDown(SDL_Renderer* renderer,Game* game) {
     if (game->gameMenu->whichMenuChoice == 0) {
       // TODO: minus boss health by 20 X reportEff multiplier
       if (!game->player->hasAttacked) {
-        playerAttack(game, 0, gameLevel);
+        playerAttack(renderer, game, 0, gameLevel);
       }
       return;
     }
@@ -984,7 +1110,7 @@ void handleMouseDown(SDL_Renderer* renderer,Game* game) {
       // TODO: stun boss, causing him/her to not attack the next turn, and for their attacks
       // to be %15 less harmful
       if (!game->player->hasAttacked) {
-        playerAttack(game, 1, gameLevel);
+        playerAttack(renderer, game, 1, gameLevel);
       }
       return;
     }
@@ -1143,7 +1269,7 @@ void bossAttack(Game* game) {
   game->player->hasAttacked = 0;
 }
 
-void playerAttack(Game* game, int playerAttackChoice, int gameLevel) {
+void playerAttack(SDL_Renderer* renderer, Game* game, int playerAttackChoice, int gameLevel) {
   // playerAttackChoice: 0 = report attack, 1 = tactical BS
   // playerAttackHitChance: 0 = miss, 1 = partial hit (50% damage), 2 = hit
 
@@ -1172,6 +1298,9 @@ void playerAttack(Game* game, int playerAttackChoice, int gameLevel) {
               printf("next level \n");
               fflush(stdout);
               gameLevel = 1;
+              updateBossHealthText = 0;
+              updateFightSceneActionText = 0;
+              loadNextLevelScene(renderer, game);
             }
           } else if (gameLevel == 1) {
             game->finalBoss->health -= 15;
@@ -1179,6 +1308,7 @@ void playerAttack(Game* game, int playerAttackChoice, int gameLevel) {
               // enter game win screen
               printf("game won \n");
               fflush(stdout);
+              loadGameWinScene(renderer, game);
             }
           }
           updateBossHealthText = 0;
@@ -1195,6 +1325,9 @@ void playerAttack(Game* game, int playerAttackChoice, int gameLevel) {
               printf("next level \n");
               fflush(stdout);
               gameLevel = 1;
+              updateBossHealthText = 0;
+              updateFightSceneActionText = 0;
+              loadNextLevelScene(renderer, game);
             }
           } else if (gameLevel == 1) {
             game->finalBoss->health -= 30;
@@ -1202,6 +1335,7 @@ void playerAttack(Game* game, int playerAttackChoice, int gameLevel) {
               // enter game win screen
               printf("game won \n");
               fflush(stdout);
+              loadGameWinScene(renderer, game);
             }
           }
           updateBossHealthText = 0;          
@@ -1236,6 +1370,9 @@ void playerAttack(Game* game, int playerAttackChoice, int gameLevel) {
               printf("next level \n");
               fflush(stdout);
               gameLevel = 1;
+              updateBossHealthText = 0;
+              updateFightSceneActionText = 0;
+              loadNextLevelScene(renderer, game);
             }
           } else if (gameLevel == 1) {
             game->finalBoss->health -= 10;
@@ -1243,6 +1380,7 @@ void playerAttack(Game* game, int playerAttackChoice, int gameLevel) {
               // enter game win screen
               printf("game won \n");
               fflush(stdout);
+              loadGameWinScene(renderer, game);
             }
           }
           updateBossHealthText = 0;          
@@ -1258,7 +1396,10 @@ void playerAttack(Game* game, int playerAttackChoice, int gameLevel) {
               // enter next level scene
               printf("next level \n");
               fflush(stdout);
+              updateBossHealthText = 0;
+              updateFightSceneActionText = 0;
               gameLevel = 1;
+              loadNextLevelScene(renderer, game);
             }
           } else if (gameLevel == 1) {
             game->finalBoss->health -= 20;
@@ -1266,6 +1407,7 @@ void playerAttack(Game* game, int playerAttackChoice, int gameLevel) {
               // enter game win screen
               printf("game won \n");
               fflush(stdout);
+              loadGameWinScene(renderer, game);
             }
           }
           updateBossHealthText = 0;          
@@ -1685,6 +1827,94 @@ void destroyTextRect(TextRect* textRect) {
   }
 }
 
+void loadNextLevelScene(SDL_Renderer* renderer,Game* game) {
+  SDL_SetRenderDrawColor(renderer,205,205,255,255);
+  TextRect* titleTextRect = newTextRect(
+    renderer,
+    CENTER_WIDTH - 100,
+    CENTER_HEIGHT - 150,
+    200,
+    100, 
+    100,
+    "../assets/OpenSans-Bold.ttf",
+    "NEXT LEVEL",
+    SHOW_TEXT,
+    BLACK
+  );
+
+  TextRect* subTitleTextRect = newTextRect(
+    renderer,
+    CENTER_WIDTH - 100,
+    CENTER_HEIGHT - 50,
+    200,
+    60, 
+    40,
+    "../assets/OpenSans-Bold.ttf",
+    "Press Enter to start game",
+    SHOW_TEXT,
+    BLACK
+  );
+  game->currentSceneName = "nextLevel";
+  game->updateFunc = &updateNextLevelScene;
+  game->renderFunc = &renderNextLevelScene;
+
+  TextRect* titleSceneRects[2] = {titleTextRect, subTitleTextRect};
+  if (game->currentScene) {
+    destroyCurrentScene(game->currentScene, game->numSceneRects);
+  }
+  game->numSceneRects = 2;
+  game->currentScene = newCurrentScene(2);
+
+  for (int i = 0; i < 2; ++i) {
+    game->currentScene[i] = *titleSceneRects[i];
+    printf("test again: %s \n", game->currentScene[i].text);
+  }
+}
+
+void loadGameWinScene(SDL_Renderer* renderer,Game* game) {
+  SDL_SetRenderDrawColor(renderer,205,205,255,255);
+  TextRect* titleTextRect = newTextRect(
+    renderer,
+    CENTER_WIDTH - 100,
+    CENTER_HEIGHT - 150,
+    200,
+    100, 
+    100,
+    "../assets/OpenSans-Bold.ttf",
+    "GAME WON",
+    SHOW_TEXT,
+    BLACK
+  );
+
+  TextRect* subTitleTextRect = newTextRect(
+    renderer,
+    CENTER_WIDTH - 100,
+    CENTER_HEIGHT - 50,
+    200,
+    60, 
+    40,
+    "../assets/OpenSans-Bold.ttf",
+    "Press Enter to go back to the Title Screen",
+    SHOW_TEXT,
+    BLACK
+  );
+  game->currentSceneName = "gamewin";
+  game->updateFunc = &updateGameWinScene;
+  game->renderFunc = &renderGameWinScene;
+
+  TextRect* titleSceneRects[2] = {titleTextRect, subTitleTextRect};
+  if (game->currentScene) {
+    destroyCurrentScene(game->currentScene, game->numSceneRects);
+  }
+  game->numSceneRects = 2;
+  game->currentScene = newCurrentScene(2);
+
+  for (int i = 0; i < 2; ++i) {
+    game->currentScene[i] = *titleSceneRects[i];
+    printf("test again: %s \n", game->currentScene[i].text);
+  }
+}
+
 void loadTitleScene(SDL_Renderer* renderer,Game* game) {
 
   TextRect* titleTextRect = newTextRect(
@@ -1753,7 +1983,7 @@ void loadPlayScene(SDL_Renderer* renderer,Game* game) {
     25, 
     40,
     "../assets/OpenSans-Bold.ttf",
-    "Health: %u",
+    "Health: %d",
     SHOW_TEXT,
     WHITE
   );
@@ -1765,7 +1995,7 @@ void loadPlayScene(SDL_Renderer* renderer,Game* game) {
     25, 
     40,
     "../assets/OpenSans-Bold.ttf",
-    "Hours \"Worked\": %u/8",
+    "Hours \"Worked\": %d/8",
     SHOW_TEXT,
     WHITE
   );
@@ -1777,7 +2007,7 @@ void loadPlayScene(SDL_Renderer* renderer,Game* game) {
     25, 
     40,
     "../assets/OpenSans-Bold.ttf",
-    "Report Eff: x%u",
+    "Report Eff: x%d",
     SHOW_TEXT,
     WHITE
   );
@@ -1789,7 +2019,7 @@ void loadPlayScene(SDL_Renderer* renderer,Game* game) {
     25, 
     40,
     "../assets/OpenSans-Bold.ttf",
-    "Report Ammo: %u/5",
+    "Report Ammo: %d/5",
     SHOW_TEXT,
     WHITE
   );
@@ -1812,8 +2042,9 @@ void loadPlayScene(SDL_Renderer* renderer,Game* game) {
   game->femaleTwo->x = 540;
   game->femaleTwo->y = 60;
 
-  if (game->firstBoss->health == 0) {
+  if (game->firstBoss->health <= 0) {
     // offscreen after level one and not interactable
+    gameLevel = 1;
     game->firstBoss->isEnabled = 0;
     game->firstBoss->x = - 100;
     game->firstBoss->y = - 100;
@@ -1866,24 +2097,35 @@ void loadFightScene(SDL_Renderer* renderer, Game* game) {
 
   game->player->sprite->animation = 8;
   game->player->sprite->frame = 0;
-  game->firstBoss->sprite->animation = 10;
-  game->firstBoss->sprite->frame = 0;
+
 
   game->player->destRect.w = game->player->srcRect.w * 6;
   game->player->destRect.h = game->player->srcRect.h * 6;
 
-  game->firstBoss->destRect.w = game->firstBoss->srcRect.w * 2;
-  game->firstBoss->destRect.h = game->firstBoss->srcRect.h * 2;
-
   game->player->x = 10;
   game->player->y = 220;
-  game->firstBoss->x = 400;
-  game->firstBoss->y = 50;
 
+  if (gameLevel == 0) {
+    game->firstBoss->sprite->animation = 10;
+    game->firstBoss->sprite->frame = 0;
+    game->firstBoss->destRect.w = game->firstBoss->srcRect.w * 2;
+    game->firstBoss->destRect.h = game->firstBoss->srcRect.h * 2;
+    game->firstBoss->x = 400;
+    game->firstBoss->y = 50;
+    game->firstBoss->destRect.x = game->firstBoss->x;
+    game->firstBoss->destRect.y = game->firstBoss->y;
+  } else if (gameLevel == 1) {
+    game->finalBoss->sprite->animation = 10;
+    game->finalBoss->sprite->frame = 0;
+    game->finalBoss->destRect.w = game->finalBoss->srcRect.w * 2;
+    game->finalBoss->destRect.h = game->finalBoss->srcRect.h * 2;
+    game->finalBoss->x = 400;
+    game->finalBoss->y = 50;
+    game->finalBoss->destRect.x = game->finalBoss->x;
+    game->finalBoss->destRect.y = game->finalBoss->y;
+  }
   game->player->destRect.x = game->player->x;
   game->player->destRect.y = game->player->y;
-  game->firstBoss->destRect.x = game->firstBoss->x;
-  game->firstBoss->destRect.y = game->firstBoss->y;
 
   if (game->gameMenu) {
     destroyGameMenu(game->gameMenu);
@@ -1902,7 +2144,7 @@ void loadFightScene(SDL_Renderer* renderer, Game* game) {
     25, 
     40,
     "../assets/OpenSans-Bold.ttf",
-    "Health: %u",
+    "Health: %d",
     SHOW_TEXT,
     BLACK
   );
@@ -1915,7 +2157,7 @@ void loadFightScene(SDL_Renderer* renderer, Game* game) {
     25, 
     40,
     "../assets/OpenSans-Bold.ttf",
-    "Boss Health: %u",
+    "Boss Health: %d",
     SHOW_TEXT,
     BLACK
   );
@@ -1952,10 +2194,6 @@ void loadFightScene(SDL_Renderer* renderer, Game* game) {
 
 void loadGameoverScene(SDL_Renderer* renderer, Game* game) {
   // TODO: Gameover scene
-}
-
-void loadGameWinScene(SDL_Renderer* renderer, Game* game) {
-  // TODO: GameWin scene
 }
 
 // Definitions
@@ -2034,6 +2272,40 @@ void renderPlayScene(SDL_Renderer *renderer, Game* game) {
 }
 
 void renderTitleScene(SDL_Renderer *renderer, Game* game) {
+  // renders text of scene - assuming scene has text
+  SDL_SetRenderDrawColor(renderer, 178, 232, 255, 255);
+
+  for (int i = 0; i < game->numSceneRects; ++i) {
+    if (game->currentScene[i].isShown) {
+      renderText(
+        renderer, 
+        game->currentScene[i].texture,
+        game->currentScene[i].font,  
+        game->currentScene[i].rect, 
+        game->currentScene[i].text
+      );
+    }
+  }
+}
+
+void renderNextLevelScene(SDL_Renderer *renderer, Game* game) {
+  // renders text of scene - assuming scene has text
+  SDL_SetRenderDrawColor(renderer, 178, 232, 255, 255);
+
+  for (int i = 0; i < game->numSceneRects; ++i) {
+    if (game->currentScene[i].isShown) {
+      renderText(
+        renderer, 
+        game->currentScene[i].texture,
+        game->currentScene[i].font,  
+        game->currentScene[i].rect, 
+        game->currentScene[i].text
+      );
+    }
+  }
+}
+
+void renderGameWinScene(SDL_Renderer *renderer, Game* game) {
   // renders text of scene - assuming scene has text
   SDL_SetRenderDrawColor(renderer, 178, 232, 255, 255);
 
