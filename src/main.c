@@ -199,12 +199,13 @@ void destroyTextRect(TextRect* textRect);
 
 int initGame(void);
 int getPlayerCollision(Game* game, Player* player);
-void handleInput(Game* game, int *loop);
+void handleInput(SDL_Renderer* renderer,Game* game, int *loop);
 void update(SDL_Renderer* renderer,Game* game, float dt);
 
 void updateTitleScene(SDL_Renderer* renderer, Game* game, float dt);
 void updateTextRect(SDL_Renderer* renderer, TextRect* textRect, int nextVal, SDL_Color color);
 void updatePlayScene(SDL_Renderer* renderer, Game* game, float dt);
+void updateFightScene(SDL_Renderer* renderer, Game* game, float dt);
 void updateSprite(Sprite* sprite, float dt);
 void updateGameoverScene(SDL_Renderer* renderer, Game* game, float dt);
 void updateGameoverScene(SDL_Renderer* renderer, Game* game, float dt);
@@ -228,9 +229,32 @@ void renderNPC(SDL_Renderer *renderer, Game* game, NPC* npc);
 void renderBoss(SDL_Renderer *renderer, Game* game, Boss* boss);
 void renderScene(SDL_Renderer *renderer,Game* game);
 void renderPlayScene(SDL_Renderer *renderer, Game* game);
+void renderFightScene(SDL_Renderer *renderer, Game* game);
 void renderTitleScene(SDL_Renderer *renderer, Game* game);
 void handleWhichKey(Game* game, SDL_Keysym *keysym);
-void handleMouseDown(Game* game);
+void handleMouseDown(SDL_Renderer* renderer,Game* game);
+
+
+void updateFightScene(SDL_Renderer* renderer, Game* game, float dt) {
+  // TODO:
+}
+
+void renderFightScene(SDL_Renderer *renderer, Game* game) {
+  renderBoss(renderer, game, game->firstBoss);
+  renderPlayer(renderer, game, game->player);
+
+  for (int i = 0; i < game->numSceneRects; ++i) {
+    if (game->currentScene[i].isShown) {
+      renderText(
+        renderer, 
+        game->currentScene[i].texture,
+        game->currentScene[i].font,  
+        game->currentScene[i].rect, 
+        game->currentScene[i].text
+      );
+    }
+  }
+}
 
 void updateTitleScene(SDL_Renderer* renderer,Game* game, float dt) {
   // printf("UPDATE TITLE SCENE: %s\n", game->currentSceneName);  
@@ -571,7 +595,7 @@ void handleWhichKey(Game* game, SDL_Keysym *keysym) {
   }
 }
 
-void handleMouseDown(Game* game) {
+void handleMouseDown(SDL_Renderer* renderer,Game* game) {
   if (!game->gameInput->isMouseDown) {
     return;
   }
@@ -660,14 +684,17 @@ void handleMouseDown(Game* game) {
     return;
   }
   if (game->firstBoss->isEnabled) {
-    if (game->player->timeScore == 8) {
-      printf("enter first boss fight scene - win and beat level\n");
-      fflush(stdout);
-      // TODO:  load first boss fight scene here
-    } else {
-      printf("increase times score first before -firstBoss- !\n");
-      fflush(stdout);
-    }
+    // TODO: put back this commented out if statement after done with fight scene dev
+    // if (game->player->timeScore == 8) {
+    //   printf("enter first boss fight scene - win and beat level\n");
+    //   fflush(stdout);
+    //   // loadFightScene(renderer, game);
+    //   // TODO:  load first boss fight scene here
+    // } else {
+    //   printf("increase times score first before -firstBoss- !\n");
+    //   fflush(stdout);
+    // }
+    loadFightScene(renderer, game);
     return;
   }
   if (game->finalBoss->isEnabled) {
@@ -688,7 +715,7 @@ void handleMouseDown(Game* game) {
 }
 
 // function definitions
-void handleInput(Game* game, int *loop) {
+void handleInput(SDL_Renderer* renderer,Game* game, int *loop) {
   SDL_Event event;
   while(SDL_PollEvent(&event)) {
     // handle user events
@@ -718,7 +745,7 @@ void handleInput(Game* game, int *loop) {
       case SDL_MOUSEBUTTONDOWN: {
         // printf("mouseDown!\n");
         game->gameInput->isMouseDown = 1;    
-        handleMouseDown(game);                        
+        handleMouseDown(renderer,game);                        
         break;
       }
       case SDL_MOUSEBUTTONUP: {
@@ -1153,7 +1180,7 @@ void loadPlayScene(SDL_Renderer* renderer,Game* game) {
     25, 
     40,
     "../assets/OpenSans-Bold.ttf",
-    "Time Score: %u/8",
+    "Hours \"Worked\": %u/8",
     SHOW_TEXT,
     WHITE
   );
@@ -1235,6 +1262,73 @@ void loadPlayScene(SDL_Renderer* renderer,Game* game) {
 
 void loadFightScene(SDL_Renderer* renderer, Game* game) {
   // TODO: mini game fight scene
+
+  game->player->sprite->animation = 8;
+  game->player->sprite->frame = 0;
+  game->firstBoss->sprite->animation = 10;
+  game->firstBoss->sprite->frame = 0;
+
+  game->player->destRect.w = game->player->srcRect.w * 6;
+  game->player->destRect.h = game->player->srcRect.h * 6;
+
+  game->firstBoss->destRect.w = game->firstBoss->srcRect.w * 2;
+  game->firstBoss->destRect.h = game->firstBoss->srcRect.h * 2;
+
+
+  game->player->x = 10;
+  game->player->y = 220;
+  game->firstBoss->x = 400;
+  game->firstBoss->y = 50;
+
+  game->player->destRect.x = game->player->x;
+  game->player->destRect.y = game->player->y;
+  game->firstBoss->destRect.x = game->firstBoss->x;
+  game->firstBoss->destRect.y = game->firstBoss->y;
+
+  SDL_SetRenderDrawColor(renderer,255,255,255,255);
+
+  TextRect* playerHealthText = newTextRect(
+    renderer,
+    345,
+    330,
+    150,
+    25, 
+    40,
+    "../assets/OpenSans-Bold.ttf",
+    "Health: %u",
+    SHOW_TEXT,
+    BLACK
+  );
+
+  TextRect* bossHealthText = newTextRect(
+    renderer,
+    245,
+    70,
+    150,
+    25, 
+    40,
+    "../assets/OpenSans-Bold.ttf",
+    "Boss Health: %u",
+    SHOW_TEXT,
+    BLACK
+  );
+  if (game->currentScene) {
+    destroyCurrentScene(game->currentScene, game->numSceneRects);
+  }
+
+  game->currentSceneName = "fight";
+  game->updateFunc = &updateFightScene;
+  game->renderFunc = &renderFightScene;
+
+  TextRect* fightSceneRects[2] = {playerHealthText, bossHealthText};
+
+  game->numSceneRects = 2;
+  game->currentScene = newCurrentScene(2);
+
+  for (int i = 0; i < 2; ++i) {
+    game->currentScene[i] = *fightSceneRects[i];
+    printf("test again: %s \n", game->currentScene[i].text);
+  }
 }
 
 void loadGameoverScene(SDL_Renderer* renderer, Game* game) {
@@ -1247,6 +1341,7 @@ void loadGameWinScene(SDL_Renderer* renderer, Game* game) {
 
 // Definitions
 void renderText(SDL_Renderer *renderer, SDL_Texture *texture, TTF_Font *font,SDL_Rect rect, char *text) {
+  // SDL_RenderFillRect(renderer,&rect);
   SDL_RenderCopy(renderer, texture, NULL, &rect); 
 }
 
@@ -1440,7 +1535,7 @@ int initGame(void) {
   double lastTime = 0, currentTime;
 
   while(loop) {
-    handleInput(game, &loop);
+    handleInput(renderer,game, &loop);
 
     currentTime = SDL_GetTicks();
     if ((currentTime - lastTime) < 1000) {
