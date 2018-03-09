@@ -31,6 +31,7 @@ SDL_Color BLACK = {0, 0, 0};
 char* globalTextBuffer[2048];
 
 int updatePlayerHealthText = 0;
+int updateBossHealthText = 0;
 int updateTimeScoreText = 0;
 int updateReportEffText = 0;
 int updateReportAmmoText = 0;
@@ -72,9 +73,16 @@ typedef struct {
 } TextRect;
 
 typedef struct {
+  TextRect* menuChoice1;
+  TextRect* menuChoice2;
+  int whichMenu;
+  int whichMenuChoice;
+  int isActive;
+} GameMenu;
+
+typedef struct {
   int reportAmmo;
   int generatedReports;
-  int coffee;
 } Inventory;
 
 typedef struct {
@@ -157,6 +165,7 @@ typedef struct t_Game {
   int numSceneRects;
   GameMap* gameMap;
   GameInput* gameInput;
+  GameMenu* gameMenu;
   TextRect* currentScene;
   Player* player;
   Boss* firstBoss;
@@ -168,6 +177,7 @@ typedef struct t_Game {
   Item* computer;
   Item* waterCooler;
   Item* copier;
+  int fightDelay;
   char* currentSceneName;
   void (*updateFunc)(SDL_Renderer* renderer, struct t_Game* game, float dt);
   void (*renderFunc)(SDL_Renderer* renderer, struct t_Game* game);
@@ -182,6 +192,9 @@ GameMap* newGameMap(SDL_Renderer* renderer);
 void destroyGameMap(GameMap* gameMap);
 Inventory* newInventory();
 void destroyInventory(Inventory* inventory);
+GameMenu* newGameMenu(SDL_Renderer* renderer, Game* game, int isActive, int whichMenu);
+void destroyGameMenu(GameMenu* gameMenu);
+void updateGameMenu(SDL_Renderer* renderer,Game* game,GameMenu* gameMenu);
 Item* newItem(SDL_Renderer* renderer, char* itemName, char* filename, int width, int height);
 void destroyItem(Item* item);
 Player* newPlayer(SDL_Renderer* renderer);
@@ -194,6 +207,7 @@ TextRect* newCurrentScene(int numSceneRects);
 void destroyCurrentScene(TextRect* textRect, int numSceneRects);
 Sprite* newSprite();
 void destroySprite(Sprite* sprite);
+
 TextRect* newTextRect(SDL_Renderer* renderer, int x, int y, int w, int h, int fontSize ,char* filename, char* text, int isShown, SDL_Color color);
 void destroyTextRect(TextRect* textRect);
 
@@ -231,17 +245,154 @@ void renderScene(SDL_Renderer *renderer,Game* game);
 void renderPlayScene(SDL_Renderer *renderer, Game* game);
 void renderFightScene(SDL_Renderer *renderer, Game* game);
 void renderTitleScene(SDL_Renderer *renderer, Game* game);
+void renderGameMenu(SDL_Renderer *renderer, Game* game);
 void handleWhichKey(Game* game, SDL_Keysym *keysym);
 void handleMouseDown(SDL_Renderer* renderer,Game* game);
+void handleMouseMove(SDL_Renderer* renderer,Game* game);
 
+void renderGameMenu(SDL_Renderer *renderer, Game* game) {
+  SDL_SetRenderDrawColor(renderer, 178, 232, 255, 255);
+
+  SDL_Rect rect;
+  rect.x = game->gameMenu->menuChoice1->rect.x;
+  rect.y = game->gameMenu->menuChoice1->rect.y;
+  rect.w = game->gameMenu->menuChoice2->rect.w;
+  rect.h = game->gameMenu->menuChoice1->rect.h + game->gameMenu->menuChoice2->rect.h;
+  SDL_RenderDrawRect(renderer, &rect);
+  if ( game->gameMenu->whichMenuChoice == 0) {
+    SDL_Rect rect1;
+    rect1.x = game->gameMenu->menuChoice1->rect.x;
+    rect1.y = game->gameMenu->menuChoice1->rect.y;
+    rect1.w = game->gameMenu->menuChoice2->rect.w;
+    rect1.h = game->gameMenu->menuChoice1->rect.h;
+    SDL_RenderFillRect(renderer,&rect1);
+  } else if (game->gameMenu->whichMenuChoice == 1) {
+    SDL_RenderFillRect(renderer,&game->gameMenu->menuChoice2->rect);
+  }
+  renderText(
+    renderer, 
+    game->gameMenu->menuChoice1->texture,
+    game->gameMenu->menuChoice1->font,  
+    game->gameMenu->menuChoice1->rect, 
+    game->gameMenu->menuChoice1->text
+  );
+  renderText(
+    renderer, 
+    game->gameMenu->menuChoice2->texture,
+    game->gameMenu->menuChoice2->font,  
+    game->gameMenu->menuChoice2->rect, 
+    game->gameMenu->menuChoice2->text
+  );
+  SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
+  
+}
+
+
+GameMenu* newGameMenu(SDL_Renderer* renderer,Game* game,int isActive, int whichMenu) {
+  // TODO: could refactor to allow for multiple menus simply, per scene
+  // isActive:
+  // 0 --> hidden and not responsive (probably obvious...)
+  // 1 --> active and responsive to mouse location
+  // whichMenu:
+  // 0 --> play scene computer menu
+  // 1 --> fight scene player menu
+  // whichMenuChoice:
+  // 0 --> top choice
+  // 1 --> bottom choice
+
+  GameMenu* gameMenu = malloc(sizeof *gameMenu);
+  if (whichMenu == 0) {
+    gameMenu->menuChoice1 = newTextRect(
+      renderer,
+      game->computer->x + 100,
+      game->computer->y + 5,
+      160,
+      50, 
+      60,
+      "../assets/OpenSans-Bold.ttf",
+      "Generate Reports",
+      SHOW_TEXT,
+      BLACK
+    );
+    gameMenu->menuChoice2 = newTextRect(
+      renderer,
+      game->computer->x + 100,
+      game->computer->y + 50,
+      190,
+      50, 
+      60,
+      "../assets/OpenSans-Bold.ttf",
+      "Develop WCB Scripts",
+      SHOW_TEXT,
+      BLACK
+    );
+  } else if (whichMenu == 1) {
+    gameMenu->menuChoice1 = newTextRect(
+      renderer,
+      game->player->x + 340,
+      game->player->y + 150,
+      100,
+      50,
+      80,
+      "../assets/OpenSans-Bold.ttf",
+      "Reports Attack",
+      SHOW_TEXT,
+      BLACK
+    );
+    gameMenu->menuChoice2 = newTextRect(
+      renderer,
+      game->player->x + 340,
+      game->player->y + 195,
+      100,
+      50,
+      80,
+      "../assets/OpenSans-Bold.ttf",
+      "Tactical BS",
+      SHOW_TEXT,
+      BLACK
+    );
+  }
+
+  gameMenu->whichMenu = whichMenu;
+  gameMenu->whichMenuChoice = -1;
+  gameMenu->isActive = isActive;
+  return gameMenu;
+}
+
+void destroyGameMenu(GameMenu* gameMenu) {
+  if (gameMenu) {
+    if (gameMenu->menuChoice1) {
+      destroyTextRect(gameMenu->menuChoice1);
+    }
+    if (gameMenu->menuChoice2) {
+      destroyTextRect(gameMenu->menuChoice2);
+    }
+    free(gameMenu);
+  }
+}
 
 void updateFightScene(SDL_Renderer* renderer, Game* game, float dt) {
-  // TODO:
+  // TODO: connect battle menu choices to affect player and boss health
+  handleMouseMove(renderer, game);
+  if (updatePlayerHealthText == 0) {
+    updateTextRect(renderer, &game->currentScene[0],game->player->health, BLACK);
+    updatePlayerHealthText = 1;
+  }
+  // make this adapt to either final boss or first boss - same goes for loadFightScene
+  if (updateBossHealthText == 0) {
+    updateTextRect(renderer, &game->currentScene[1],game->firstBoss->health, BLACK);
+    updateBossHealthText = 1;
+  }
+
 }
 
 void renderFightScene(SDL_Renderer *renderer, Game* game) {
   renderBoss(renderer, game, game->firstBoss);
   renderPlayer(renderer, game, game->player);
+
+  if (game->gameMenu->isActive) {
+    renderGameMenu(renderer, game);
+  }
 
   for (int i = 0; i < game->numSceneRects; ++i) {
     if (game->currentScene[i].isShown) {
@@ -428,6 +579,9 @@ int getPlayerCollision(Game* game, Player* player) {
       // printf("hit computer\n");
       // fflush(stdout);
       game->computer->isEnabled = 1;
+      if (game->gameMenu) {
+        game->gameMenu->isActive = 1;
+      }
     }
   } 
   if (player->x + SPRITE_WIDTH >= game->finalBoss->x && player->x <= game->finalBoss->x + SPRITE_WIDTH) {
@@ -454,6 +608,8 @@ void updatePlayScene(SDL_Renderer* renderer,Game* game, float dt) {
   // game->maleOne->x += dt / 10;
   // printf("maleOne X: %u\n",game->maleOne->x);
   // updateSprite(game->maleOne->sprite, dt);
+  handleMouseMove(renderer, game);
+
   if (updatePlayerHealthText == 0) {
     updateTextRect(renderer, &game->currentScene[0],game->player->health, WHITE);
     updatePlayerHealthText = 1;
@@ -465,7 +621,7 @@ void updatePlayScene(SDL_Renderer* renderer,Game* game, float dt) {
   }
 
   if (updateReportEffText == 0) {
-    updateTextRect(renderer, &game->currentScene[2],1, WHITE);
+    updateTextRect(renderer, &game->currentScene[2],game->player->reportEff, WHITE);
     updateReportEffText = 1;
   }
   if (updateReportAmmoText == 0) {
@@ -482,6 +638,7 @@ void updatePlayScene(SDL_Renderer* renderer,Game* game, float dt) {
     game->waterCooler->isEnabled = 0;
     game->computer->isEnabled = 0;
     game->finalBoss->isEnabled = 0;   
+    game->gameMenu->isActive = 0;
     switch(game->gameInput->whichKey) {
       case SDL_SCANCODE_RIGHT: {
         game->player->sprite->animation = 9;
@@ -595,6 +752,48 @@ void handleWhichKey(Game* game, SDL_Keysym *keysym) {
   }
 }
 
+void updateGameMenu(SDL_Renderer* renderer,Game* game,GameMenu* gameMenu) {
+  // controls hiding and display of the fight scene player battle menu
+  // as well as which action to take
+  // 1 --> generate reports
+  // 2 --> develop WCB scripts
+
+  // for battle (on fight scene)
+  // 1 --> use report attack
+  // 2 --> use tactical BS
+}
+
+// NOTE: currently only deals with game menus
+void handleMouseMove(SDL_Renderer* renderer, Game* game) {
+  if (game->gameMenu->isActive) {
+    if ( game->gameInput->mouseX >= game->gameMenu->menuChoice1->rect.x 
+        && game->gameInput->mouseX <= game->gameMenu->menuChoice1->rect.x + game->gameMenu->menuChoice1->rect.w ) {
+        if ( game->gameInput->mouseY >= game->gameMenu->menuChoice1->rect.y 
+          && game->gameInput->mouseY <= game->gameMenu->menuChoice1->rect.y + game->gameMenu->menuChoice1->rect.h ) {
+            // printf("on top choice\n");
+            // fflush(stdout);      
+            game->gameMenu->whichMenuChoice = 0;      
+            return;
+        }
+    }
+    if ( game->gameInput->mouseX >= game->gameMenu->menuChoice2->rect.x 
+        && game->gameInput->mouseX <= game->gameMenu->menuChoice2->rect.x + game->gameMenu->menuChoice2->rect.w ) {
+        if ( game->gameInput->mouseY >= game->gameMenu->menuChoice2->rect.y 
+          && game->gameInput->mouseY <= game->gameMenu->menuChoice2->rect.y + game->gameMenu->menuChoice2->rect.h ) {
+            // printf("on bottom choice\n");
+            // fflush(stdout);
+            game->gameMenu->whichMenuChoice = 1;
+            return;
+        }
+    } else {
+      // printf("outside choice\n");
+      // fflush(stdout);
+      game->gameMenu->whichMenuChoice = - 1;
+      return;
+    }
+  } 
+}
+
 void handleMouseDown(SDL_Renderer* renderer,Game* game) {
   if (!game->gameInput->isMouseDown) {
     return;
@@ -603,13 +802,28 @@ void handleMouseDown(SDL_Renderer* renderer,Game* game) {
   if (game->computer->isEnabled) {
     // printf("add +1 to generated reports\n");
     // fflush(stdout);
-    if (game->inventory->generatedReports < 5) {
-      game->inventory->generatedReports += 1;
-      // updateReportAmmoText = 0;
-    }
-    if (game->player->timeScore < 5) {
-      game->player->timeScore += 1;
-      updateTimeScoreText = 0;
+    // just show the game menu now
+    if (game->gameMenu->isActive) {
+      if (game->gameMenu->whichMenuChoice == 0) {
+        if (game->inventory->generatedReports < 5) {
+          game->inventory->generatedReports += 1;
+          // updateReportAmmoText = 0;
+        }
+        if (game->player->timeScore < 5) {
+          game->player->timeScore += 1;
+          updateTimeScoreText = 0;
+        }
+      } else if (game->gameMenu->whichMenuChoice == 1) {
+          game->player->reportEff += 1;
+        if (game->player->reportEff <= 2) {
+          game->player->reportEff = 2;
+          updateReportEffText = 0;
+        }
+        if (game->player->timeScore <= 2) {
+          game->player->timeScore += 1;
+          updateTimeScoreText = 0;
+        }
+      }
     }
     return;
   }
@@ -619,6 +833,7 @@ void handleMouseDown(SDL_Renderer* renderer,Game* game) {
     game->player->timeScore += 1;
     if (game->player->timeScore >= 8) {
       game->player->timeScore = 8;
+      updateTimeScoreText = 0;
       printf(" ***femaleOne speaking: go to boss now!***\n");
     } else {
       printf("**femaleOne making convo**\n");
@@ -630,9 +845,9 @@ void handleMouseDown(SDL_Renderer* renderer,Game* game) {
   if (game->femaleTwo->isEnabled) {
     printf("add +1 to time score: femaleTwo Conversation\n");
     game->player->timeScore += 1;
-    if (game->player->timeScore > 8) {
+    if (game->player->timeScore >= 8) {
       game->player->timeScore = 8;
-      // updateTimeScoreText = 0;
+      updateTimeScoreText = 0;
       printf(" ***femaleTwo speaking: go to boss now!***\n");
     } else {
       printf("**femaleTwo making convo**\n");
@@ -644,8 +859,9 @@ void handleMouseDown(SDL_Renderer* renderer,Game* game) {
   if (game->maleOne->isEnabled) {
     printf("add +1 to time score: maleOne Conversation\n");
     game->player->timeScore += 1;
-    if (game->player->timeScore > 8) {
+    if (game->player->timeScore >= 8) {
       game->player->timeScore = 8;
+      updateTimeScoreText = 0;
       printf(" ***maleOne speaking: go to boss now!***\n");
     } else {
       printf("**maleOne making convo**\n");
@@ -685,31 +901,52 @@ void handleMouseDown(SDL_Renderer* renderer,Game* game) {
   }
   if (game->firstBoss->isEnabled) {
     // TODO: put back this commented out if statement after done with fight scene dev
-    // if (game->player->timeScore == 8) {
+    // if (game->player->timeScore == 8 && game->inventory->reportAmmo == 5) {
     //   printf("enter first boss fight scene - win and beat level\n");
     //   fflush(stdout);
     //   // loadFightScene(renderer, game);
     //   // TODO:  load first boss fight scene here
-    // } else {
+    // } else if (game->player->timeScore != 8) {
     //   printf("increase times score first before -firstBoss- !\n");
     //   fflush(stdout);
+    // } else if (game->inventory->reportAmmo != 5) {
+    //   printf("increase report ammo first before -firstBoss- !\n");
+    //   fflush(stdout);   
     // }
+    game->firstBoss->isEnabled = 0;
     loadFightScene(renderer, game);
     return;
   }
   if (game->finalBoss->isEnabled) {
-    if (game->player->timeScore == 8 && game->firstBoss->health != 0) {
+    if (game->player->timeScore == 8 && game->firstBoss->health == 0) {
       printf("enter final boss fight scene - win and beat game\n");
       fflush(stdout);
       // TODO:  load final boss fight scene here
     } else if (game->firstBoss->health != 0) {
       printf("beat first boss before -finalboss- !\n");
       fflush(stdout);
-    } else {
-      printf("increase times score first before -finalboss- !\n");
+    } else if (game->player->timeScore != 8 || game->inventory->reportAmmo != 5){
+      printf("increase times score first or get more report ammo before -finalboss- !\n");
       fflush(stdout);
     }
     return;
+  }
+
+  // TODO: here - where fight scene actions can occur
+  if (game->gameMenu) {
+    if (game->gameMenu->whichMenuChoice == 0) {
+      // TODO: minus boss health by 20 X reportEff multiplier
+      printf("report attack - attack!\n");
+      fflush(stdout);
+      return;
+    }
+    if (game->gameMenu->whichMenuChoice == 1) {
+      // TODO: stun boss, causing him/her to not attack the next turn, and for their attacks
+      // to be %15 less harmful
+      printf("tactical BS attack!\n");
+      fflush(stdout);
+      return;
+    }
   }
 
 }
@@ -817,6 +1054,9 @@ void destroyGame(Game* game) {
   if (game) {
     destroyPlayer(game->player);
     destroyGameInput(game->gameInput);
+    if (game->gameMenu) {
+      destroyGameMenu(game->gameMenu);
+    }
     destroyInventory(game->inventory);
     destroyItem(game->computer);
     destroyItem(game->waterCooler);
@@ -835,7 +1075,6 @@ void destroyGame(Game* game) {
 Inventory* newInventory() {
   Inventory* inventory = malloc(sizeof *inventory);
   inventory->reportAmmo = 0;
-  inventory->coffee = 0;
   inventory->generatedReports = 0;
   return inventory;
 }
@@ -1218,7 +1457,7 @@ void loadPlayScene(SDL_Renderer* renderer,Game* game) {
   game->renderFunc = &renderPlayScene;
 
   // set initial NPC, bosses, and player positions
-  game->maleOne->x = 300;
+  game->maleOne->x = 400;
   game->maleOne->y = 330;
 
   game->femaleOne->x = 200;
@@ -1227,8 +1466,15 @@ void loadPlayScene(SDL_Renderer* renderer,Game* game) {
   game->femaleTwo->x = 540;
   game->femaleTwo->y = 60;
 
-  game->firstBoss->x = 100;
-  game->firstBoss->y = 370;
+  if (game->firstBoss->health == 0) {
+    // offscreen after level one and not interactable
+    game->firstBoss->isEnabled = 0;
+    game->firstBoss->x = - 100;
+    game->firstBoss->y = - 100;
+  } else {
+    game->firstBoss->x = 100;
+    game->firstBoss->y = 370;
+  }
 
   game->finalBoss->x = 200;
   game->finalBoss->y = 220;
@@ -1245,6 +1491,13 @@ void loadPlayScene(SDL_Renderer* renderer,Game* game) {
 
   game->computer->x = 50;
   game->computer->y = 35;
+
+  if (game->gameMenu) {
+    destroyGameMenu(game->gameMenu);
+    game->gameMenu = 0;
+  }
+
+  game->gameMenu = newGameMenu(renderer, game, 0,0);
 
   // sprintf(globalTextBuffer, playerHealthText->text ,game->player->health);
   // playerHealthText->text = globalTextBuffer;
@@ -1263,6 +1516,8 @@ void loadPlayScene(SDL_Renderer* renderer,Game* game) {
 void loadFightScene(SDL_Renderer* renderer, Game* game) {
   // TODO: mini game fight scene
 
+  updatePlayerHealthText = 0;
+
   game->player->sprite->animation = 8;
   game->player->sprite->frame = 0;
   game->firstBoss->sprite->animation = 10;
@@ -1274,7 +1529,6 @@ void loadFightScene(SDL_Renderer* renderer, Game* game) {
   game->firstBoss->destRect.w = game->firstBoss->srcRect.w * 2;
   game->firstBoss->destRect.h = game->firstBoss->srcRect.h * 2;
 
-
   game->player->x = 10;
   game->player->y = 220;
   game->firstBoss->x = 400;
@@ -1284,6 +1538,13 @@ void loadFightScene(SDL_Renderer* renderer, Game* game) {
   game->player->destRect.y = game->player->y;
   game->firstBoss->destRect.x = game->firstBoss->x;
   game->firstBoss->destRect.y = game->firstBoss->y;
+
+  if (game->gameMenu) {
+    destroyGameMenu(game->gameMenu);
+    game->gameMenu = 0;
+  }
+
+  game->gameMenu = newGameMenu(renderer, game, 1,1);
 
   SDL_SetRenderDrawColor(renderer,255,255,255,255);
 
@@ -1312,6 +1573,18 @@ void loadFightScene(SDL_Renderer* renderer, Game* game) {
     SHOW_TEXT,
     BLACK
   );
+  TextRect* fightActionUpdateText = newTextRect(
+    renderer,
+    CENTER_WIDTH - 100,
+    CENTER_HEIGHT - 30,
+    150,
+    25, 
+    40,
+    "../assets/OpenSans-Bold.ttf",
+    "-Begin Fight-",
+    SHOW_TEXT,
+    BLACK
+  );
   if (game->currentScene) {
     destroyCurrentScene(game->currentScene, game->numSceneRects);
   }
@@ -1320,12 +1593,12 @@ void loadFightScene(SDL_Renderer* renderer, Game* game) {
   game->updateFunc = &updateFightScene;
   game->renderFunc = &renderFightScene;
 
-  TextRect* fightSceneRects[2] = {playerHealthText, bossHealthText};
+  TextRect* fightSceneRects[3] = {playerHealthText, bossHealthText, fightActionUpdateText};
 
-  game->numSceneRects = 2;
-  game->currentScene = newCurrentScene(2);
+  game->numSceneRects = 3;
+  game->currentScene = newCurrentScene(3);
 
-  for (int i = 0; i < 2; ++i) {
+  for (int i = 0; i < 3; ++i) {
     game->currentScene[i] = *fightSceneRects[i];
     printf("test again: %s \n", game->currentScene[i].text);
   }
@@ -1381,6 +1654,10 @@ void renderPlayScene(SDL_Renderer *renderer, Game* game) {
   // 2. Player - TODO: in progress
   // 3. NPCs - TODO: in progress
   // 4. Bosses - TODO: in progress
+
+  // 255-255-224
+  SDL_SetRenderDrawColor(renderer, 255, 255, 224, 255);
+
   
   renderMap(renderer, game);
   renderItem(renderer,game, game->computer);
@@ -1392,7 +1669,11 @@ void renderPlayScene(SDL_Renderer *renderer, Game* game) {
   renderBoss(renderer, game, game->firstBoss);
   renderBoss(renderer, game, game->finalBoss);
   renderPlayer(renderer, game, game->player);
-  
+
+  if (game->gameMenu->isActive) {
+    renderGameMenu(renderer, game);
+  }
+
   for (int i = 0; i < game->numSceneRects; ++i) {
     if (game->currentScene[i].isShown) {
       renderText(
@@ -1451,9 +1732,11 @@ Game* newGame(SDL_Renderer* renderer) {
   game->maleOne = newNPC(renderer, "../assets/male_1.png");
   game->femaleOne = newNPC(renderer, "../assets/female_1.png");
   game->femaleTwo = newNPC(renderer, "../assets/female_2.png");
+  game->fightDelay = 100;
   game->currentScene = 0;
   game->renderFunc = 0;
   game->updateFunc = 0;
+  game->gameMenu = 0;
 
   return game;
 }
@@ -1536,7 +1819,6 @@ int initGame(void) {
 
   while(loop) {
     handleInput(renderer,game, &loop);
-
     currentTime = SDL_GetTicks();
     if ((currentTime - lastTime) < 1000) {
       dt = (currentTime - lastTime);
