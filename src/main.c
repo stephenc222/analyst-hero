@@ -228,14 +228,14 @@ void updateFightSceneStatusText (SDL_Renderer *renderer, TextRect* textRect, cha
 void updatePlayScene(SDL_Renderer* renderer, Game* game, float dt);
 void updateFightScene(SDL_Renderer* renderer, Game* game, float dt);
 void updateSprite(Sprite* sprite, float dt);
-void updateGameoverScene(SDL_Renderer* renderer, Game* game, float dt);
+void updateGameOverScene(SDL_Renderer* renderer, Game* game, float dt);
 void updateGameWinScene(SDL_Renderer* renderer, Game* game, float dt);
 
 void loadTitleScene(SDL_Renderer* renderer, Game* game);
 void loadPlayScene(SDL_Renderer* renderer, Game* game);
 void loadFightScene(SDL_Renderer* renderer,Game* game);
 void loadNextLevelScene(SDL_Renderer* renderer,Game* game);
-void loadGameoverScene(SDL_Renderer* renderer, Game* game);
+void loadGameOverScene(SDL_Renderer* renderer, Game* game);
 void loadGameWinScene(SDL_Renderer* renderer,Game* game);
 
 void cleanUp(SDL_Renderer *renderer,SDL_Window *window, Game* game);
@@ -254,12 +254,13 @@ void renderFightScene(SDL_Renderer *renderer, Game* game);
 void renderTitleScene(SDL_Renderer *renderer, Game* game);
 void renderNextLevelScene(SDL_Renderer *renderer, Game* game);
 void renderGameWinScene(SDL_Renderer *renderer, Game* game);
+void renderGameOverScene(SDL_Renderer *renderer, Game* game);
 void renderGameMenu(SDL_Renderer *renderer, Game* game);
 void handleWhichKey(Game* game, SDL_Keysym *keysym);
 void handleMouseDown(SDL_Renderer* renderer,Game* game);
 void handleMouseMove(SDL_Renderer* renderer,Game* game);
 void playerAttack(SDL_Renderer* renderer, Game* game, int playerAttackChoice, int gameLevel);
-void bossAttack(Game* game);
+void bossAttack(SDL_Renderer* renderer,Game* game);
 
 void renderGameMenu(SDL_Renderer *renderer, Game* game) {
   SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
@@ -398,7 +399,7 @@ void updateFightScene(SDL_Renderer* renderer, Game* game, float dt) {
     if (game->fightDelay <= 0) {
       game->fightDelay = 700;
       // boss attack
-      bossAttack(game);
+      bossAttack(renderer,game);
     }
   }
 
@@ -558,14 +559,31 @@ void updateGameOverScene(SDL_Renderer* renderer,Game* game, float dt) {
     game->player->destRect.w = SPRITE_WIDTH;
     game->player->destRect.h = SPRITE_HEIGHT;
 
+    game->finalBoss->srcRect.w = SPRITE_WIDTH;
+    game->finalBoss->srcRect.h = SPRITE_HEIGHT;
+    game->finalBoss->destRect.w = SPRITE_WIDTH;
+    game->finalBoss->destRect.h = SPRITE_HEIGHT;
+
+    game->firstBoss->health = 100;
+    game->finalBoss->health = 100;
+    game->player->health = 100;
+
     updatePlayerHealthText = 0;
     updateReportAmmoText = 0;
     updateTimeScoreText = 0;
     updateReportEffText = 0;
     updateBossHealthText = 0;
-    
+    game->firstBoss->sprite->animation = 11;
+    game->firstBoss->sprite->frame = 0;
+    game->finalBoss->sprite->animation = 11;
+    game->finalBoss->sprite->frame = 0;
+
     SDL_SetRenderDrawColor(renderer, 255, 105, 180, 255);
+    gameLevel = 0;
+
+    startOver = 1;
     loadTitleScene(renderer,game);
+    
   }
 }
 
@@ -1118,7 +1136,7 @@ void handleMouseDown(SDL_Renderer* renderer,Game* game) {
 
 }
 
-void bossAttack(Game* game) {
+void bossAttack(SDL_Renderer* renderer,Game* game) {
   // bossAttackHitChance: 0 = miss, 1 = partial hit, 2 = hit
   // bossAttackChoice: 0 = "Questions Integrity", 1 = "Bad Joke", 2 = "Found Report Problem"
   int bossAttackHitChance = rand() % (0 + 2 - 0) + 0;
@@ -1142,10 +1160,13 @@ void bossAttack(Game* game) {
           printf("boss partial hit attack!\n");
           fflush(stdout);
           game->currentScene[2].text = "boss uses 'Questions Integrity' - partial hit!";
-          game->player->health -= 10;
+          // game->player->health -= 10;
+          game->player->health -= 80;
           if (game->player->health <= 0) {
             printf("game over");
             fflush(stdout);
+            loadGameOverScene(renderer, game);
+            return;
           }
           updatePlayerHealthText = 0;
           updateFightSceneActionText = 0;
@@ -1156,10 +1177,13 @@ void bossAttack(Game* game) {
           printf("boss direct hit!\n");
           fflush(stdout);
           game->currentScene[2].text = "boss uses 'Questions Integrity' - direct hit!";
-          game->player->health -= 20;
+          // game->player->health -= 20;
+          game->player->health -= 80;
           if (game->player->health <= 0) {
             printf("game over");
             fflush(stdout);
+            loadGameOverScene(renderer, game);
+            return;
           }
           updatePlayerHealthText = 0;
           updateFightSceneActionText = 0;
@@ -1189,10 +1213,13 @@ void bossAttack(Game* game) {
           printf("boss partial hit attack!\n");
           fflush(stdout);
           game->currentScene[2].text = "boss uses: 'Bad Joke' - partial hit!";
-          game->player->health -= 10;
+          // game->player->health -= 10;
+          game->player->health -= 80;
           if (game->player->health <= 0) {
             printf("-game over-\n");
             fflush(stdout);
+            loadGameOverScene(renderer, game);
+            return;
           }
           updatePlayerHealthText = 0;
           updateFightSceneActionText = 0;
@@ -1207,6 +1234,8 @@ void bossAttack(Game* game) {
           if (game->player->health <= 0) {
             printf("-game over-\n");
             fflush(stdout);
+            loadGameOverScene(renderer, game);
+            return;
           }
           updatePlayerHealthText = 0;
           updateFightSceneActionText = 0;
@@ -1238,6 +1267,8 @@ void bossAttack(Game* game) {
             // enter game over scene
             printf("game over \n");
             fflush(stdout);
+            loadGameOverScene(renderer, game);
+            return;
           }
           updatePlayerHealthText = 0;
           updateFightSceneActionText = 0;
@@ -1251,6 +1282,8 @@ void bossAttack(Game* game) {
             // enter game over scene
             printf("game over \n");
             fflush(stdout);
+            loadGameOverScene(renderer, game);
+            return;
           }
           updatePlayerHealthText = 0;
           updateFightSceneActionText = 0;
@@ -1899,6 +1932,7 @@ void loadGameWinScene(SDL_Renderer* renderer,Game* game) {
     BLACK
   );
   game->currentSceneName = "gamewin";
+  game->numSceneRects = 2;
   game->updateFunc = &updateGameWinScene;
   game->renderFunc = &renderGameWinScene;
 
@@ -1906,7 +1940,6 @@ void loadGameWinScene(SDL_Renderer* renderer,Game* game) {
   if (game->currentScene) {
     destroyCurrentScene(game->currentScene, game->numSceneRects);
   }
-  game->numSceneRects = 2;
   game->currentScene = newCurrentScene(2);
 
   for (int i = 0; i < 2; ++i) {
@@ -2033,7 +2066,7 @@ void loadPlayScene(SDL_Renderer* renderer,Game* game) {
   game->renderFunc = &renderPlayScene;
 
   // set initial NPC, bosses, and player positions
-  game->maleOne->x = 400;
+  game->maleOne->x = 385;
   game->maleOne->y = 330;
 
   game->femaleOne->x = 200;
@@ -2049,7 +2082,7 @@ void loadPlayScene(SDL_Renderer* renderer,Game* game) {
     game->firstBoss->x = - 100;
     game->firstBoss->y = - 100;
   } else {
-    game->firstBoss->x = 100;
+    game->firstBoss->x = 60;
     game->firstBoss->y = 370;
   }
 
@@ -2192,8 +2225,48 @@ void loadFightScene(SDL_Renderer* renderer, Game* game) {
   }
 }
 
-void loadGameoverScene(SDL_Renderer* renderer, Game* game) {
-  // TODO: Gameover scene
+void loadGameOverScene(SDL_Renderer* renderer,Game* game) {
+  SDL_SetRenderDrawColor(renderer,205,205,255,255);
+  TextRect* titleTextRect = newTextRect(
+    renderer,
+    CENTER_WIDTH - 100,
+    CENTER_HEIGHT - 150,
+    200,
+    100, 
+    100,
+    "../assets/OpenSans-Bold.ttf",
+    "GAME OVER",
+    SHOW_TEXT,
+    BLACK
+  );
+
+  TextRect* subTitleTextRect = newTextRect(
+    renderer,
+    CENTER_WIDTH - 100,
+    CENTER_HEIGHT - 50,
+    200,
+    60, 
+    40,
+    "../assets/OpenSans-Bold.ttf",
+    "Press Enter to go back to the Title Screen",
+    SHOW_TEXT,
+    BLACK
+  );
+  game->numSceneRects = 2;
+  game->currentSceneName = "gameover";
+  game->updateFunc = &updateGameOverScene;
+  game->renderFunc = &renderGameOverScene;
+
+  TextRect* titleSceneRects[2] = {titleTextRect, subTitleTextRect};
+  if (game->currentScene) {
+    destroyCurrentScene(game->currentScene, game->numSceneRects);
+  }
+  game->currentScene = newCurrentScene(2);
+
+  for (int i = 0; i < 2; ++i) {
+    game->currentScene[i] = *titleSceneRects[i];
+    printf("test again: %s \n", game->currentScene[i].text);
+  }
 }
 
 // Definitions
@@ -2306,6 +2379,23 @@ void renderNextLevelScene(SDL_Renderer *renderer, Game* game) {
 }
 
 void renderGameWinScene(SDL_Renderer *renderer, Game* game) {
+  // renders text of scene - assuming scene has text
+  SDL_SetRenderDrawColor(renderer, 178, 232, 255, 255);
+
+  for (int i = 0; i < game->numSceneRects; ++i) {
+    if (game->currentScene[i].isShown) {
+      renderText(
+        renderer, 
+        game->currentScene[i].texture,
+        game->currentScene[i].font,  
+        game->currentScene[i].rect, 
+        game->currentScene[i].text
+      );
+    }
+  }
+}
+
+void renderGameOverScene(SDL_Renderer *renderer, Game* game) {
   // renders text of scene - assuming scene has text
   SDL_SetRenderDrawColor(renderer, 178, 232, 255, 255);
 
