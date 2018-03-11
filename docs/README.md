@@ -22,4 +22,4 @@ Once you've increased time to 5pm, then go to the boss' office to battle a.k.a "
 
 This starts a minigame where you will use your report ammo to defeat the boss! Higher report effectiveness means a better chance your reports will hit and with greater damage!
 
-If you beat the first boss, you can go to the water cooler to regain health a.k.a. chill
+If you beat the first boss, you can go to the water cooler to regain health a.k.a. chill.
