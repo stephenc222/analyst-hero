@@ -29,7 +29,7 @@ echo -e "${CC_OK}Copying SDL binaries...${CC_RESET}"
 cp -R ./external/SDL2/32/bin/*.dll ./dist/i686/bin
 cp -R ./external/SDL2/64/bin/*.dll ./dist/x86_64/bin
 
-function build_32_bit_executable() {
+function build_32_bit_executable {
   if [ `which i686-w64-mingw32-gcc` != "" ]; then
     echo -e "${CC_OK}MingW is installed. Excellent${CC_RESET}"
   else
@@ -48,7 +48,7 @@ function build_32_bit_executable() {
   i686-w64-mingw32-gcc $SRC $INCP $LIBP $FLAGS -o $EXE
 }
 
-function build_64_bit_executable() {
+function build_64_bit_executable {
   if [ `which i686-w64-mingw32-gcc` != "" ]; then
     echo -e "${CC_OK}MingW is installed. Excellent${CC_RESET}"
   else
@@ -66,16 +66,15 @@ function build_64_bit_executable() {
   x86_64-w64-mingw32-gcc $SRC $INCP $LIBP $FLAGS -o $EXE
 }
 
-function build_osx_executable() {
-  # INCP="-I/usr/local/Cellar/mingw-w64/5.0.3_2/toolchain-x86_64/x86_64-w64-mingw32/include -I./external/SDL2/64/include"
-  # LIBP="-L/usr/local/Cellar/mingw-w64/5.0.3_2/toolchain-x86_64/x86_64-w64-mingw32/lib -L./external/SDL2/64/lib"
-  # FLAGS="-w -Wl,-subsystem,windows -lmingw32 -lSDL2main -lSDL2 -lSDL2_image -lSDL2_ttf"
-  # INCP="-I/usr/local/Cellar/mingw-w64/5.0.3_2/toolchain-x86_64/x86_64-w64-mingw32/include"
-  # LIBP="-L/usr/local/Cellar/mingw-w64/5.0.3_2/toolchain-x86_64/x86_64-w64-mingw32/lib"
+# assumes SDL2 for OS X is installed on your system locally
+# easy way to install sdl2 libraries:
+# brew install sdl2{,_gfx,_image,_mixer,_net,_ttf}
+function build_osx_executable {
+  LIBP="-L/usr/local/lib -lSDL2 -lSDL2_ttf -lSDL2_image"
   FLAGS="-MMD -MP -g"
   EXE="dist/osx/bin/game"
   SRC="src/main.c"
-  cc $SRC $FLAGS -o $EXE
+  cc $SRC $FLAGS $LIBP -o $EXE
 }
 
 read -p "Build for OSX? " -n 1 -r
