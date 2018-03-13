@@ -23,3 +23,9 @@
 * special effects, like emojis and thought bubbles that appear over NPC's heads at random intervals to make it appear like they have something on their mind, or are responding to something you say to them
 
 * random "events" that may or may not happen in a day, like the copier jamming and everyone trying to use it gets pissed off. or the water cooler needs refilling and an NPC dumps water everywhere trying to put a new jug on it, etc...
+
+* Boss text and numbers larger font
+
+* make the bosses have different and more attacks
+
+* visual special effects, and more visual feedback from game actions (like clicking on the computer, the water cooler, etc.)
