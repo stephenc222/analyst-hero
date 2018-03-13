@@ -30,15 +30,15 @@ SDL_Color BLACK = {0, 0, 0};
 
 char* globalTextBuffer[2048];
 
-int updatePlayerHealthText = 0;
-int updateBossHealthText = 0;
-int updateTimeScoreText = 0;
-int updateReportEffText = 0;
-int updateReportAmmoText = 0;
-int updateFightSceneActionText = 0;
-int playerAttackChoice = -1;
-int gameLevel = 0;
-int startOver = 0;
+char updatePlayerHealthText = 0;
+char updateBossHealthText = 0;
+char updateTimeScoreText = 0;
+char updateReportEffText = 0;
+char updateReportAmmoText = 0;
+char updateFightSceneActionText = 0;
+char playerAttackChoice = -1;
+char gameLevel = 0;
+char startOver = 0;
 
 unsigned char gameMapArr[MAP_W * MAP_H] = {
   1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
@@ -189,37 +189,46 @@ typedef struct t_Game {
 } Game;
 
 // Forward Declarations
-Game* newGame(SDL_Renderer* renderer);
-void destroyGame(Game* game);
-GameInput* newGameInput();
-void destroyGameInput(GameInput* gameInput);
-GameMap* newGameMap(SDL_Renderer* renderer);
-void destroyGameMap(GameMap* gameMap);
-Inventory* newInventory();
-void destroyInventory(Inventory* inventory);
-GameMenu* newGameMenu(SDL_Renderer* renderer, Game* game, int isActive, int whichMenu);
-void destroyGameMenu(GameMenu* gameMenu);
-void updateGameMenu(SDL_Renderer* renderer,Game* game,GameMenu* gameMenu);
-Item* newItem(SDL_Renderer* renderer, char* itemName, char* filename, int width, int height);
-void destroyItem(Item* item);
-Player* newPlayer(SDL_Renderer* renderer);
-void destroyPlayer(Player* player);
-Boss* newBoss(SDL_Renderer* renderer, char* filename);
-void destroyBoss(Boss* boss);
-NPC* newNPC(SDL_Renderer* renderer, char* filename);
-void destroyNPC(NPC* npc);
-TextRect* newCurrentScene(int numSceneRects);
-void destroyCurrentScene(TextRect* textRect, int numSceneRects);
-Sprite* newSprite();
-void destroySprite(Sprite* sprite);
+void bossAttack(SDL_Renderer* renderer,Game* game);
+void cleanUp(SDL_Renderer *renderer,SDL_Window *window, Game* game);
 
-TextRect* newTextRect(SDL_Renderer* renderer, int x, int y, int w, int h, int fontSize ,char* filename, char* text, int isShown, SDL_Color color);
+void destroyGame(Game* game);
+void destroyGameInput(GameInput* gameInput);
+void destroyGameMap(GameMap* gameMap);
+void destroyInventory(Inventory* inventory);
+void destroyGameMenu(GameMenu* gameMenu);
+void destroyItem(Item* item);
+void destroyPlayer(Player* player);
+void destroyBoss(Boss* boss);
+void destroyNPC(NPC* npc);
+void destroyCurrentScene(TextRect* textRect, int numSceneRects);
+void destroySprite(Sprite* sprite);
 void destroyTextRect(TextRect* textRect);
 
 int initGame(void);
 int getPlayerCollision(Game* game, Player* player);
+
+Boss* newBoss(SDL_Renderer* renderer, char* filename);
+TextRect* newCurrentScene(int numSceneRects);
+Item* newItem(SDL_Renderer* renderer, char* itemName, char* filename, int width, int height);
+Game* newGame(SDL_Renderer* renderer);
+GameInput* newGameInput();
+GameMap* newGameMap(SDL_Renderer* renderer);
+GameMenu* newGameMenu(SDL_Renderer* renderer, Game* game, int isActive, int whichMenu);
+Inventory* newInventory();
+NPC* newNPC(SDL_Renderer* renderer, char* filename);
+Player* newPlayer(SDL_Renderer* renderer);
+Sprite* newSprite();
+
+TextRect* newTextRect(SDL_Renderer* renderer, int x, int y, int w, int h, int fontSize ,char* filename, char* text, int isShown, SDL_Color color);
+
 void handleInput(SDL_Renderer* renderer,Game* game, int *loop);
-void update(SDL_Renderer* renderer,Game* game, float dt);
+void handleMouseDown(SDL_Renderer* renderer,Game* game);
+void handleMouseMove(SDL_Renderer* renderer,Game* game);
+void handleWhichKey(Game* game, SDL_Keysym *keysym);
+int hitBoss(Boss* boss, Player *player);
+int hitItem(Item* item, Player *player, int itemWidth, int itemHeight);
+int hitNPC(NPC* npc, Player *player);
 
 void updateTitleScene(SDL_Renderer* renderer, Game* game, float dt);
 void updateNextLevelScene(SDL_Renderer* renderer, Game* game, float dt);
@@ -231,17 +240,17 @@ void updateSprite(Sprite* sprite, float dt);
 void updateGameOverScene(SDL_Renderer* renderer, Game* game, float dt);
 void updateGameWinScene(SDL_Renderer* renderer, Game* game, float dt);
 
-void loadTitleScene(SDL_Renderer* renderer, Game* game);
-void loadPlayScene(SDL_Renderer* renderer, Game* game);
 void loadFightScene(SDL_Renderer* renderer,Game* game);
-void loadNextLevelScene(SDL_Renderer* renderer,Game* game);
 void loadGameOverScene(SDL_Renderer* renderer, Game* game);
 void loadGameWinScene(SDL_Renderer* renderer,Game* game);
-
-void cleanUp(SDL_Renderer *renderer,SDL_Window *window, Game* game);
+void loadNextLevelScene(SDL_Renderer* renderer,Game* game);
+void loadPlayScene(SDL_Renderer* renderer, Game* game);
 TTF_Font* loadText(const char *fileName, int fontSize);
+void loadTitleScene(SDL_Renderer* renderer, Game* game);
+
+void playerAttack(SDL_Renderer* renderer, Game* game, int playerAttackChoice, int gameLevel);
+
 void renderText(SDL_Renderer *renderer, SDL_Texture *texture,TTF_Font *font,SDL_Rect rect, char *text);
-void updateText(SDL_Renderer *renderer, SDL_Texture *texture,TTF_Font *font,SDL_Rect rect, char *text);
 void render(SDL_Renderer *renderer, Game* game);
 void renderMap(SDL_Renderer * renderer, Game* game);
 void renderMapTile(SDL_Renderer *renderer, Game* game, SDL_Texture* texture, SDL_Rect* destRect);
@@ -256,12 +265,11 @@ void renderNextLevelScene(SDL_Renderer *renderer, Game* game);
 void renderGameWinScene(SDL_Renderer *renderer, Game* game);
 void renderGameOverScene(SDL_Renderer *renderer, Game* game);
 void renderGameMenu(SDL_Renderer *renderer, Game* game);
-void handleWhichKey(Game* game, SDL_Keysym *keysym);
-void handleMouseDown(SDL_Renderer* renderer,Game* game);
-void handleMouseMove(SDL_Renderer* renderer,Game* game);
-void playerAttack(SDL_Renderer* renderer, Game* game, int playerAttackChoice, int gameLevel);
-void bossAttack(SDL_Renderer* renderer,Game* game);
 
+void update(SDL_Renderer* renderer,Game* game, float dt);
+void updateText(SDL_Renderer *renderer, SDL_Texture *texture,TTF_Font *font,SDL_Rect rect, char *text);
+
+// Function Definitions
 void renderGameMenu(SDL_Renderer *renderer, Game* game) {
   SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
 
@@ -427,7 +435,6 @@ void updateFightScene(SDL_Renderer* renderer, Game* game, float dt) {
       updateBossHealthText = 1;
     }
   }
-
 }
 
 void renderFightScene(SDL_Renderer *renderer, Game* game) {
@@ -689,6 +696,39 @@ void renderBoss(SDL_Renderer* renderer,Game* game, Boss* boss) {
   );
 }
 
+int hitBoss(Boss* boss, Player *player) {
+  if (player->x + SPRITE_WIDTH >= boss->x && player->x <= boss->x + SPRITE_WIDTH) {
+    if (player->y + SPRITE_HEIGHT >= boss->y && player->y <= boss->y + SPRITE_HEIGHT) {
+      // printf("hit firstBoss\n");
+      // fflush(stdout);
+      return 1;
+    }
+  }
+  return 0;
+}
+
+int hitItem(Item* item, Player *player, int itemWidth, int itemHeight) {
+  if (player->x + SPRITE_WIDTH >= item->x && player->x <= item->x + itemWidth) {
+    if (player->y + itemHeight >= item->y && player->y <= item->y + itemHeight) {
+      // printf("hit firstBoss\n");
+      // fflush(stdout);
+      return 1;  
+    }
+  }
+  return 0;
+}
+
+int hitNPC(NPC* npc, Player *player) {
+  if (player->x + SPRITE_WIDTH >= npc->x && player->x <= npc->x + SPRITE_WIDTH) {
+    if (player->y + SPRITE_HEIGHT >= npc->y && player->y <= npc->y + SPRITE_HEIGHT) {
+      // printf("hit firstBoss\n");
+      // fflush(stdout);
+      return 1;  
+    }
+  }
+  return 0;
+}
+
 int getPlayerCollision(Game* game, Player* player) {
 
   int tileX1 = (player->x + SPRITE_WIDTH * 0.25) / TILE_WIDTH;
@@ -702,66 +742,40 @@ int getPlayerCollision(Game* game, Player* player) {
   int currTileIndex4 =  tileX2 + tileY2 * MAP_W;
 
   // TODO: these object collision only work for detecting the play
+  if (hitNPC(game->maleOne, player)) {
+    game->maleOne->isEnabled = 1;
+  }
 
-  if (player->x + SPRITE_WIDTH >= game->maleOne->x && player->x <= game->maleOne->x + SPRITE_WIDTH) {
-    if (player->y + SPRITE_HEIGHT >= game->maleOne->y && player->y <= game->maleOne->y + SPRITE_HEIGHT) {
-      // printf("hit maleOne\n");
-      // fflush(stdout);
-      game->maleOne->isEnabled = 1;
-    }
-  } 
-  if (player->x + SPRITE_WIDTH >= game->femaleOne->x && player->x <= game->femaleOne->x + SPRITE_WIDTH) {
-    if (player->y + SPRITE_HEIGHT >= game->femaleOne->y && player->y <= game->femaleOne->y + SPRITE_HEIGHT) {
-      // printf("hit femaleOne\n");
-      // fflush(stdout);
-      game->femaleOne->isEnabled = 1;
-    }
-  } 
-  if (player->x + SPRITE_WIDTH >= game->femaleTwo->x && player->x <= game->femaleTwo->x + SPRITE_WIDTH) {
-    if (player->y + SPRITE_HEIGHT >= game->femaleTwo->y && player->y <= game->femaleTwo->y + SPRITE_HEIGHT) {
-      // printf("hit femaleTwo\n");
-      // fflush(stdout);
-      game->femaleTwo->isEnabled = 1;
-    }
-  } 
-  if (player->x + SPRITE_WIDTH >= game->firstBoss->x && player->x <= game->firstBoss->x + SPRITE_WIDTH) {
-    if (player->y + SPRITE_HEIGHT >= game->firstBoss->y && player->y <= game->firstBoss->y + SPRITE_HEIGHT) {
-      // printf("hit firstBoss\n");
-      // fflush(stdout);
-      game->firstBoss->isEnabled = 1;  
+  if (hitNPC(game->femaleOne, player)) {
+    game->femaleOne->isEnabled = 1;
+  }
+
+  if (hitNPC(game->femaleTwo, player)) {
+    game->femaleTwo->isEnabled = 1;
+  }
+
+  if (hitBoss(game->firstBoss, player)) {
+    game->firstBoss->isEnabled = 1;  
+  }
+
+  if (hitBoss(game->finalBoss, player)) {
+    game->finalBoss->isEnabled = 1;  
+  }
+
+  if (hitItem(game->copier, player, COPIER_WIDTH, COPIER_HEIGHT)) {
+    game->copier->isEnabled = 1;
+  }
+
+  if (hitItem(game->waterCooler, player, WATERCOOLER_WIDTH, WATERCOOLER_HEIGHT)) {
+    game->waterCooler->isEnabled = 1;
+  }
+
+  if (hitItem(game->computer, player, COMPUTER_WIDTH, COMPUTER_HEIGHT)) {
+    game->computer->isEnabled = 1;
+    if (game->gameMenu) {
+      game->gameMenu->isActive = 1;
     }
   }
-  if (player->x + SPRITE_WIDTH >= game->copier->x && player->x <= game->copier->x + COPIER_WIDTH) {
-    if (player->y + SPRITE_HEIGHT >= game->copier->y && player->y <= game->copier->y + COPIER_HEIGHT) {
-      // printf("hit copier\n");
-      // fflush(stdout);
-      game->copier->isEnabled = 1;
-    }
-  } 
-  if (player->x + SPRITE_WIDTH >= game->waterCooler->x && player->x <= game->waterCooler->x + WATERCOOLER_WIDTH) {
-    if (player->y + SPRITE_HEIGHT >= game->waterCooler->y && player->y <= game->waterCooler->y + WATERCOOLER_HEIGHT) {
-      // printf("hit waterCooler\n");
-      // fflush(stdout);
-      game->waterCooler->isEnabled = 1;
-    }
-  } 
-  if (player->x + SPRITE_WIDTH >= game->computer->x && player->x <= game->computer->x + COMPUTER_WIDTH) {
-    if (player->y + SPRITE_HEIGHT >= game->computer->y && player->y <= game->computer->y + COMPUTER_HEIGHT) {
-      // printf("hit computer\n");
-      // fflush(stdout);
-      game->computer->isEnabled = 1;
-      if (game->gameMenu) {
-        game->gameMenu->isActive = 1;
-      }
-    }
-  } 
-  if (player->x + SPRITE_WIDTH >= game->finalBoss->x && player->x <= game->finalBoss->x + SPRITE_WIDTH) {
-    if (player->y + SPRITE_HEIGHT >= game->finalBoss->y && player->y <= game->finalBoss->y + SPRITE_HEIGHT) {
-      // printf("hit finalBoss\n");
-      // fflush(stdout);
-      game->finalBoss->isEnabled = 1;
-    }
-  } 
 
   // TODO: if time, improve this collision detection. good enough for now
   if (gameMapArr[currTileIndex1] || gameMapArr[currTileIndex2] || gameMapArr[currTileIndex3] || gameMapArr[currTileIndex4]) {
@@ -923,17 +937,6 @@ void handleWhichKey(Game* game, SDL_Keysym *keysym) {
   }
 }
 
-void updateGameMenu(SDL_Renderer* renderer,Game* game,GameMenu* gameMenu) {
-  // controls hiding and display of the fight scene player battle menu
-  // as well as which action to take
-  // 1 --> generate reports
-  // 2 --> develop WCB scripts
-
-  // for battle (on fight scene)
-  // 1 --> use report attack
-  // 2 --> use tactical BS
-}
-
 // NOTE: currently only deals with game menus
 void handleMouseMove(SDL_Renderer* renderer, Game* game) {
   if (game->gameMenu->isActive) {
@@ -1046,8 +1049,8 @@ void handleMouseDown(SDL_Renderer* renderer,Game* game) {
     fflush(stdout);
     if (game->inventory->generatedReports <= 0) {
       printf("need to generate reports first!\n");
-      game->inventory->generatedReports = 0;
       fflush(stdout);
+      game->inventory->generatedReports = 0;
       return;
     }
     if (game->inventory->reportAmmo < 5) {
@@ -1063,11 +1066,8 @@ void handleMouseDown(SDL_Renderer* renderer,Game* game) {
     game->player->health += 20;
     if (game->player->health >= 100) {
       game->player->health = 100;
-    } else {
-      updatePlayerHealthText = 0;
-      printf("add +20 to health\n");
-      fflush(stdout);
     }
+    updatePlayerHealthText = 0;
     return;
   }
   if (game->firstBoss->isEnabled) {
@@ -1093,7 +1093,6 @@ void handleMouseDown(SDL_Renderer* renderer,Game* game) {
     printf("first boss health: %d\n", game->firstBoss->health);
     printf("game level: %d\n", gameLevel);
     fflush(stdout);
-    
 
     if (game->player->timeScore == 8 && game->firstBoss->health <= 0 && gameLevel == 1) {
       printf("enter final boss fight scene - win and beat game\n");
